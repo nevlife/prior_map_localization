@@ -1,0 +1,5 @@
+/**:
+  ros__parameters:
+    wheel_scale: 0.90  # Hunter speed over-reports distance; calibrated against LIO-SAM
+    vx_sigma: 0.1
+    vy_sigma: 0.03

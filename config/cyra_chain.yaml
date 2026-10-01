@@ -1,0 +1,24 @@
+# i7-12700F: P-cores are cpus 0-15, E-cores 16-19. The upstream nodes do not bind their
+# threads yet, so this file is only checked with `cyra check`.
+chains:
+  scan_to_pose:
+    target: soft
+    criticality: 1
+    stages:
+      - node: /lidar_localization
+        policy: fifo
+        priority: 60
+        cpus: [4, 6, 8, 10]
+        children: inherit # OpenMP team threads do this stage's work
+      - node: /ekf_map
+        policy: fifo
+        priority: 65
+        cpus: [12]
+  odom:
+    target: soft
+    criticality: 2
+    stages:
+      - node: /ekf_odom
+        policy: fifo
+        priority: 70
+        cpus: [14]

@@ -1,0 +1,4 @@
+/**:
+  ros__parameters:
+    rtk_sigma_floor: 1.2  # map georef RMSE (georef.json rmse_inlier)
+    float_sigma_floor: 3.0

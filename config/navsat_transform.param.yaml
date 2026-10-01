@@ -1,0 +1,6 @@
+/**:
+  ros__parameters:
+    zero_altitude: true
+    wait_for_datum: true
+    # map frame = UTM 52N minus origin, unrotated; datum yaw cancels meridian convergence
+    datum: [35.9138453975, 128.8035838978, 0.00201082] # lat, lon, yaw [rad]
