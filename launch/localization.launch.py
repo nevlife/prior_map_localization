@@ -37,15 +37,17 @@ def generate_launch_description():
     sim = {"use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool)}
     lio = LaunchConfiguration("lio")
     lio_transport = LaunchConfiguration("lio_transport")
-    ekf_odom_params = PathJoinSubstitution(
-        [
-            share,
-            "config",
-            PythonExpression(
-                ["'ekf_odom_lio.param.yaml' if '", lio, "' == 'true' else 'ekf_odom.param.yaml'"]
-            ),
-        ]
-    )
+
+    def ekf_param_file(node_name):
+        return PathJoinSubstitution(
+            [
+                share,
+                "config",
+                PythonExpression(
+                    [f"'{node_name}_lio.param.yaml' if '", lio, f"' == 'true' else '{node_name}.param.yaml'"]
+                ),
+            ]
+        )
 
     lidar_localization = LifecycleNode(
         package="lidar_localization_ros2",
@@ -158,7 +160,7 @@ def generate_launch_description():
                 package="robot_localization",
                 executable="ekf_node",
                 name="ekf_odom",
-                parameters=[ekf_odom_params, sim],
+                parameters=[ekf_param_file("ekf_odom"), sim],
                 remappings=[
                     ("odometry/filtered", "/odometry/local"),
                     ("set_pose", "/ekf_odom/set_pose"),
@@ -168,7 +170,7 @@ def generate_launch_description():
                 package="robot_localization",
                 executable="ekf_node",
                 name="ekf_map",
-                parameters=[param_file("ekf_map"), sim],
+                parameters=[ekf_param_file("ekf_map"), sim],
                 remappings=[
                     ("odometry/filtered", "/odometry/global"),
                     ("set_pose", "/ekf_map/set_pose"),
