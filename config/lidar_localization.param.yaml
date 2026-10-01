@@ -9,6 +9,9 @@
     # use_odom is not a scan seed in lidar_localization_ros2; the seed comes from a twist.
     use_twist_prediction: true
     use_imu_preintegration: false
+    # Deskew from the last NDT motion; velodyne stamps are the scan end.
+    continuous_time_deskew_mode: lidar_constant_velocity
+    continuous_time_deskew_reference_time_sec: 0.1
     # A new scan replaces one still in fragments when the reader keeps only one.
     cloud_queue_depth: 5
     # Large clouds over best-effort DDS lose the whole message on one lost fragment.
