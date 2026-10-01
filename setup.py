@@ -23,6 +23,8 @@ setup(
             "gps_cov_floor = prior_map_localization.gps_cov_floor:main",
             "graph_initialpose = prior_map_localization.graph_initialpose:main",
             "odom_twist_relay = prior_map_localization.odom_twist_relay:main",
+            "scan_start_relay = prior_map_localization.scan_start_relay:main",
+            "lio_twist_relay = prior_map_localization.lio_twist_relay:main",
         ],
     },
 )

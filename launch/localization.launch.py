@@ -11,9 +11,11 @@ from launch.actions import DeclareLaunchArgument
 from launch.actions import EmitEvent
 from launch.actions import GroupAction
 from launch.actions import RegisterEventHandler
+from launch.conditions import IfCondition
 from launch.events import matches_action
 from launch.substitutions import LaunchConfiguration
 from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import PythonExpression
 from launch_ros.actions import LifecycleNode
 from launch_ros.actions import Node
 from launch_ros.actions import SetRemap
@@ -33,6 +35,17 @@ def generate_launch_description():
     map_pcd = PathJoinSubstitution([bundle_dir, "ndt_map_0p4.pcd"])
     graph_json = PathJoinSubstitution([bundle_dir, "graph.json"])
     sim = {"use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool)}
+    lio = LaunchConfiguration("lio")
+    lio_transport = LaunchConfiguration("lio_transport")
+    ekf_odom_params = PathJoinSubstitution(
+        [
+            share,
+            "config",
+            PythonExpression(
+                ["'ekf_odom_lio.param.yaml' if '", lio, "' == 'true' else 'ekf_odom.param.yaml'"]
+            ),
+        ]
+    )
 
     lidar_localization = LifecycleNode(
         package="lidar_localization_ros2",
@@ -65,6 +78,8 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("bundle_dir"),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
+            DeclareLaunchArgument("lio", default_value="false"),
+            DeclareLaunchArgument("lio_transport", default_value="dds", choices=["dds", "flux"]),
             Node(
                 package="prior_map_localization",
                 executable="wheel_twist_relay",
@@ -95,11 +110,48 @@ def generate_launch_description():
                     ("~/output/fix", "/gps/fix_floored"),
                 ],
             ),
+            GroupAction(
+                [
+                    Node(
+                        package="prior_map_localization",
+                        executable="scan_start_relay",
+                        name="scan_start_relay",
+                        parameters=[sim, {"transport": lio_transport}],
+                        remappings=[
+                            ("~/input/points", "/velodyne_points"),
+                            ("~/output/points", "/lio/points"),
+                        ],
+                    ),
+                    # FAST-LIO broadcasts camera_init->body; ekf_odom owns odom->base_link.
+                    Node(
+                        package="fast_lio",
+                        executable="fastlio_mapping",
+                        name="fast_lio",
+                        parameters=[
+                            param_file("fast_lio"),
+                            sim,
+                            {"common.lid_transport": lio_transport},
+                        ],
+                        remappings=[("/tf", "/fast_lio/tf"), ("/Odometry", "/lio/odometry")],
+                    ),
+                    Node(
+                        package="prior_map_localization",
+                        executable="lio_twist_relay",
+                        name="lio_twist_relay",
+                        parameters=[param_file("lio_twist_relay"), sim],
+                        remappings=[
+                            ("~/input/odom", "/lio/odometry"),
+                            ("~/output/twist", "/lio/twist"),
+                        ],
+                    ),
+                ],
+                condition=IfCondition(lio),
+            ),
             Node(
                 package="robot_localization",
                 executable="ekf_node",
                 name="ekf_odom",
-                parameters=[param_file("ekf_odom"), sim],
+                parameters=[ekf_odom_params, sim],
                 remappings=[
                     ("odometry/filtered", "/odometry/local"),
                     ("set_pose", "/ekf_odom/set_pose"),

@@ -18,6 +18,19 @@ chains:
     target: soft
     criticality: 2
     stages:
+      - node: /scan_start_relay
+        policy: fifo
+        priority: 66
+        cpus: [16]
+      - node: /fast_lio
+        policy: fifo
+        priority: 68
+        cpus: [0, 2]
+        children: inherit # OpenMP team threads do this stage's work
+      - node: /lio_twist_relay
+        policy: fifo
+        priority: 68
+        cpus: [16]
       - node: /ekf_odom
         policy: fifo
         priority: 70
