@@ -9,3 +9,10 @@
     # use_odom is not a scan seed in lidar_localization_ros2; the seed comes from a twist.
     use_twist_prediction: true
     use_imu_preintegration: false
+    # A new scan replaces one still in fragments when the reader keeps only one.
+    cloud_queue_depth: 5
+    # Large clouds over best-effort DDS lose the whole message on one lost fragment.
+    qos_overrides:
+      /velodyne_points:
+        subscription:
+          reliability: reliable
