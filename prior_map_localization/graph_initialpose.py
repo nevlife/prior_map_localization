@@ -2,7 +2,9 @@
 
   position : GPS in the map frame (navsat_transform)
   yaw      : GPS track heading after `min_travel` m, corrected by the local odometry heading
-             change; snapped to the nearest graph link heading (or its reverse) when close
+             change; snapped to the nearest graph link heading (or its reverse) when close.
+             A GPS step over `max_gps_step` restarts the track: navsat_transform echoes the
+             manual datum once as a fix, and float fixes jump.
   z        : low percentile of NDT map points under the robot, plus `base_height`
 
 The pose also goes to the map EKF's set_pose. A True /reinitialization_requested re-arms.
@@ -61,6 +63,7 @@ class GraphInitialPose(Node):
         self.map_xyz = load_pcd_xyz(self.declare_parameter("map_pcd", Parameter.Type.STRING).value)
         self.min_travel = self.declare_parameter("min_travel", Parameter.Type.DOUBLE).value
         self.max_gps_sigma = self.declare_parameter("max_gps_sigma", Parameter.Type.DOUBLE).value
+        self.max_gps_step = self.declare_parameter("max_gps_step", Parameter.Type.DOUBLE).value
         self.snap_tol = math.radians(
             self.declare_parameter("snap_tolerance_deg", Parameter.Type.DOUBLE).value
         )
@@ -76,6 +79,7 @@ class GraphInitialPose(Node):
 
         self.armed = True
         self.start = None
+        self.last_gps = None
         self.odom = None
 
         self.initialpose_pub = self.create_publisher(
@@ -91,6 +95,7 @@ class GraphInitialPose(Node):
             self.get_logger().warn("reinitialization requested, re-arming")
             self.armed = True
             self.start = None
+            self.last_gps = None
 
     def on_odom(self, msg):
         p = msg.pose.pose
@@ -103,7 +108,9 @@ class GraphInitialPose(Node):
             return
         gps_xy = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y])
         odom_xy, odom_yaw = self.odom
-        if self.start is None:
+        jumped = self.last_gps is not None and np.linalg.norm(gps_xy - self.last_gps) > self.max_gps_step
+        self.last_gps = gps_xy
+        if self.start is None or jumped:
             self.start = (gps_xy, odom_xy)
             return
         gps_d = gps_xy - self.start[0]
