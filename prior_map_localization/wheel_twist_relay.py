@@ -1,7 +1,8 @@
 """Hunter wheel speed (std_msgs/Float64) -> TwistWithCovarianceStamped for robot_localization.
 
-The driver message has no header, so the stamp is the reception time. Lateral velocity is
-published as 0: an Ackermann base does not slide sideways.
+The driver message has no header, so the stamp is the reception time. The twist is expressed
+at the rear axle with lateral velocity 0, the only point of an Ackermann base that does not slide
+sideways; robot_localization moves it to base_link with the yaw rate.
 """
 
 from geometry_msgs.msg import TwistWithCovarianceStamped
@@ -31,7 +32,7 @@ class WheelTwistRelay(Node):
     def on_speed(self, msg):
         out = TwistWithCovarianceStamped()
         out.header.stamp = self.get_clock().now().to_msg()
-        out.header.frame_id = "base_link"
+        out.header.frame_id = "rear_axle"
         out.twist.twist.linear.x = msg.data * self.scale
         out.twist.covariance = self.covariance
         self.pub.publish(out)

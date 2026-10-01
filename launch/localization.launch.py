@@ -81,6 +81,13 @@ def generate_launch_description():
             DeclareLaunchArgument("lio", default_value="false"),
             DeclareLaunchArgument("lio_transport", default_value="dds", choices=["dds", "flux"]),
             Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="rear_axle_tf",
+                arguments=["--x", "-0.28", "--frame-id", "base_link", "--child-frame-id", "rear_axle"],
+                parameters=[sim],
+            ),
+            Node(
                 package="prior_map_localization",
                 executable="wheel_twist_relay",
                 name="wheel_twist_relay",
