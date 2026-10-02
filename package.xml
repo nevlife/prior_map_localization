@@ -3,24 +3,38 @@
 <package format="3">
   <name>prior_map_localization</name>
   <version>0.1.0</version>
-  <description>Hunter localization from open-source parts: robot_localization (EKF + navsat) and lidar_localization_ros2 (NDT) on a PCD map bundle.</description>
+  <description>Hunter localization on a prior PCD map: scan-to-map matching (prior_map_matcher), FAST-LIO odometry and robot_localization EKFs.</description>
   <maintainer email="nevlife000720@gmail.com">nev</maintainer>
   <license>MIT</license>
 
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <depend>cyra_core</depend>
+  <depend>diagnostic_msgs</depend>
+  <depend>flux_cpp</depend>
+  <depend>flux_std_adapters</depend>
+  <depend>geometry_msgs</depend>
+  <depend>libpcl-all-dev</depend>
+  <depend>nav_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>small_gicp</depend>
+  <depend>std_msgs</depend>
+  <depend>tf2_eigen</depend>
+  <depend>tf2_ros</depend>
+
+  <exec_depend>cyra_py</exec_depend>
   <exec_depend>fast_lio</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>flux_py</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>lidar_localization_ros2</exec_depend>
   <exec_depend>lifecycle_msgs</exec_depend>
-  <exec_depend>nav_msgs</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>robot_localization</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
 
   <export>
-    <build_type>ament_python</build_type>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

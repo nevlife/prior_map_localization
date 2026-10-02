@@ -1,0 +1,35 @@
+/**:
+  ros__parameters:
+    # transport and map_pcd come from the launch file.
+    map_frame: map
+    base_frame: base_link
+    filter:
+      min_range: 1.5
+      max_range: 80.0
+      voxel_leaf_size: 0.4
+      max_scan_duration_sec: 0.2
+    fitness_threshold: 2.0
+    max_prediction_dt_sec: 0.5
+    reinitialization_gap_sec: 30.0
+    covariance:
+      # [xy m, z m, roll and pitch rad, yaw rad]
+      std_floor: [0.2, 0.3, 0.02618, 0.03491]
+      std_per_fitness: [0.1, 0.1, 0.01745, 0.01745]
+      std_max: [5.0, 5.0, 0.5236, 0.5236]
+    registration:
+      method: ndt_omp
+      num_threads: 8
+      max_iterations: 35
+      ndt_omp:
+        resolution: 1.0
+        step_size: 0.1
+        transformation_epsilon: 0.01
+        # Steps are clipped to step_size, so the search only adds derivative passes (2-3x the time).
+        line_search: false
+      small_gicp:
+        type: GICP
+        num_neighbors: 20
+        max_correspondence_distance: 2.0
+        voxel_resolution: 1.0
+        translation_epsilon: 0.0005
+        rotation_epsilon: 0.002

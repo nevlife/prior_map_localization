@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """nav_msgs/Odometry -> TwistWithCovarianceStamped for lidar_localization_ros2's scan seed.
 
 lidar_localization_ros2 seeds a scan match from a twist topic, not from `use_odom`.
@@ -27,3 +28,7 @@ class OdomTwistRelay(Node):
 def main():
     rclpy.init()
     rclpy.spin(OdomTwistRelay())
+
+
+if __name__ == "__main__":
+    main()

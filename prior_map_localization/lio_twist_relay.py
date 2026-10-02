@@ -1,9 +1,11 @@
+#!/usr/bin/env python3
 """FAST-LIO odometry -> base_link TwistWithCovarianceStamped for robot_localization.
 
 FAST-LIO publishes the IMU pose in its start frame and no twist, so the twist is the motion
 between consecutive scans, moved from the IMU to base_link.
 """
 
+import cyra
 import numpy as np
 import rclpy
 from geometry_msgs.msg import TwistWithCovarianceStamped
@@ -87,4 +89,10 @@ class LioTwistRelay(Node):
 
 def main():
     rclpy.init()
-    rclpy.spin(LioTwistRelay())
+    node = LioTwistRelay()
+    cyra.bind(node.get_fully_qualified_name())
+    rclpy.spin(node)
+
+
+if __name__ == "__main__":
+    main()

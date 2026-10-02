@@ -1,0 +1,4 @@
+[submodule "thirdparty/ndt_omp"]
+	path = thirdparty/ndt_omp
+	url = https://github.com/nevlife/ndt_omp
+	branch = jazzy

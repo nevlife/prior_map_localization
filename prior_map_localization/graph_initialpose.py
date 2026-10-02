@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """/initialpose for lidar_localization_ros2 from GPS and the map bundle's road graph.
 
   position : GPS in the map frame (navsat_transform)
@@ -172,3 +173,7 @@ class GraphInitialPose(Node):
 def main():
     rclpy.init()
     rclpy.spin(GraphInitialPose())
+
+
+if __name__ == "__main__":
+    main()

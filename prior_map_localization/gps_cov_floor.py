@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Clamp NavSatFix covariance to a per-fix-type floor before navsat_transform.
 
 The receiver reports sub-metre sigma in float fixes, and the map bundle's georeference has
@@ -38,3 +39,7 @@ class GpsCovFloor(Node):
 def main():
     rclpy.init()
     rclpy.spin(GpsCovFloor())
+
+
+if __name__ == "__main__":
+    main()

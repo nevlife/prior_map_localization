@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Hunter wheel speed (std_msgs/Float64) -> TwistWithCovarianceStamped for robot_localization.
 
 The driver message has no header, so the stamp is the reception time. The twist is expressed
@@ -41,3 +42,7 @@ class WheelTwistRelay(Node):
 def main():
     rclpy.init()
     rclpy.spin(WheelTwistRelay())
+
+
+if __name__ == "__main__":
+    main()

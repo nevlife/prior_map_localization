@@ -1,0 +1,8 @@
+# Added to both EKFs when lio:=true: the FAST-LIO body twist, yaw rate included.
+/**:
+  ros__parameters:
+    twist1: /lio/twist
+    twist1_config: [false, false, false, false, false, false,
+                    true, true, false, false, false, true,
+                    false, false, false]
+    twist1_queue_size: 10
