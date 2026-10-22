@@ -9,7 +9,7 @@
     runtime_pos_log_enable: false
     map_file_path: ""
     common:
-      lid_topic: /lio/points
+      lid_topic: /velodyne_points
       imu_topic: /vectornav/imu
       time_sync_en: false
       time_offset_lidar_to_imu: 0.0

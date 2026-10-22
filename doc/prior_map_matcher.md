@@ -21,10 +21,10 @@ ndt_omp를 colcon 패키지로 두지 않는다. 원본이 export하는 타깃�
 ## 데이터 흐름
 
 ```text
-/velodyne_points -> scan_start_relay ─(dds|flux, lio_transport)─┬─> fast_lio
-                                                                 └─> prior_map_matcher
-/odometry/local (ekf_odom) ──────────────────────────────────────────> prior_map_matcher
-/initialpose (graph_initialpose) ────────────────────────────────────> prior_map_matcher
+velodyne_transform_node ─(dds|flux, lidar_transport)─> /velodyne_points ─┬─> fast_lio
+                                                                         └─> prior_map_matcher
+/odometry/local (ekf_odom) ──────────────────────────────────────────────────> prior_map_matcher
+/initialpose (graph_initialpose) ────────────────────────────────────────────> prior_map_matcher
 
 prior_map_matcher ─> /pcl_pose ─> ekf_map
               ─> /reinitialization_requested ─> graph_initialpose
@@ -33,14 +33,14 @@ prior_map_matcher ─> /pcl_pose ─> ekf_map
 
 | 노드 이름 | 토픽 | 타입 |
 | --- | --- | --- |
-| `~/input/points` | `/lio/points` | `sensor_msgs/PointCloud2` (DDS 또는 flux) |
+| `~/input/points` | `/velodyne_points` | `sensor_msgs/PointCloud2` (DDS 또는 flux) |
 | `~/input/odom` | `/odometry/local` | `nav_msgs/Odometry` |
 | `~/input/initialpose` | `/initialpose` | `geometry_msgs/PoseWithCovarianceStamped` |
 | `~/output/pose` | `/pcl_pose` | `geometry_msgs/PoseWithCovarianceStamped` |
 | `~/output/reinitialization_requested` | `/reinitialization_requested` | `std_msgs/Bool` |
 | `~/debug/alignment_status` | `/alignment_status` | `diagnostic_msgs/DiagnosticArray` |
 
-- 스캔은 FAST-LIO와 같은 relay 출력을 받는다. DDS 역직렬화는 relay에서 한 번이고, flux에서는 두 노드가 같은 공유메모리 프레임을 복사 없이 읽는다.
+- 스캔은 FAST-LIO와 같은 `/velodyne_points`를 받는다. flux에서는 두 노드가 같은 공유메모리 프레임을 복사 없이 읽는다. stamp는 스캔 시작이고 점 시간은 [0, 주기)다(드라이버 `timestamp_first_packet`, bring_up `lidar.param.yaml`).
 - 트위스트는 `ekf_odom`의 `Odometry`를 바로 받는다. lidar_localization용 `odom_twist_relay`가 필요 없다.
 - TF는 내지 않는다. map->odom은 `ekf_map`이 맡는다.
 
@@ -48,7 +48,7 @@ prior_map_matcher ─> /pcl_pose ─> ekf_map
 
 - 노드는 하나다. 전처리 결과를 쓰는 곳이 정합 하나뿐이라 나누면 점군 전달만 늘어난다. 지도는 시작할 때 파일에서 읽는다.
 - lifecycle, 컴포지션을 쓰지 않는다. 컨테이너는 자기 executor를 써서 flux 구독이 돌지 않고, 프로세스 간 복사 제거는 flux가 맡는다.
-- 단일 스레드 executor다. `dds`는 `rclcpp::executors::SingleThreadedExecutor`, `flux`는 `flux::ros::Executor`(ROS 구독도 함께 돈다)를 쓴다. 상태를 한 스레드만 만지므로 mutex가 없다.
+- 단일 스레드 executor다. `dds`는 `rclcpp::executors::SingleThreadedExecutor`, `flux`는 `flux::Executor`(ROS 구독도 함께 돈다)를 쓴다. 상태를 한 스레드만 만지므로 mutex가 없다.
 - 병렬화는 정합 엔진 안의 OpenMP뿐이다(`registration.num_threads`).
 - `main`은 노드를 만든 뒤 `cyra::bind`로 메인 스레드를 stage에 걸고, 그다음 `load_map()`을 부른다. 타깃을 만드는 첫 정합이 OpenMP 팀을 만들기 때문에, 순서를 바꾸면 팀 스레드가 `children: inherit`를 물려받지 못한다.
 
@@ -95,7 +95,7 @@ on_points
 | 항목 | lidar_localization_ros2 | prior_map_matcher | 이유 |
 | --- | --- | --- | --- |
 | NDT 라이브러리 | `ndt_omp_ros2` (line search 꺼짐, 비결정적 합산) | koide3 `ndt_omp` + line search 스위치(끔) | 원본 수정 반영, 결정적 합산 |
-| 입력 | `/velodyne_points` (DDS) | relay 출력 (DDS/flux) | FAST-LIO와 공유 |
+| 입력 | `/velodyne_points` (DDS) | `/velodyne_points` (DDS/flux) | FAST-LIO와 공유 |
 | 점 읽기 | `fromROSMsg` 후 변환 | 버퍼에서 바로 읽음 | 변환 단계 제거 |
 | deskew 움직임 | reject 뒤에도 accept 간 시간으로 갱신 | 연속 accept일 때만 갱신 | reject 연속 뒤 과소 보정 방지 |
 | 재초기화 판정 | 점수식과 latch | 마지막 accept 이후 시간 | 실제로 걸리는 조건(30 s, 200회)과 같음 |

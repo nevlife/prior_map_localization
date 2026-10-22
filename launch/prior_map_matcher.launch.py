@@ -36,7 +36,7 @@ def generate_launch_description():
                     {"transport": LaunchConfiguration("transport")},
                 ],
                 remappings=[
-                    ("~/input/points", "/lio/points"),
+                    ("~/input/points", "/velodyne_points"),
                     ("~/input/odom", "/odometry/local"),
                     ("~/input/initialpose", "/initialpose"),
                     ("~/output/pose", "/pcl_pose"),

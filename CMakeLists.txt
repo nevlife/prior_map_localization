@@ -50,8 +50,7 @@ install(TARGETS prior_map_matcher DESTINATION lib/${PROJECT_NAME})
 
 ament_python_install_package(${PROJECT_NAME})
 foreach(node
-    gps_cov_floor graph_initialpose lio_twist_relay odom_twist_relay scan_start_relay
-    wheel_twist_relay)
+    gps_cov_floor graph_initialpose lio_twist_relay odom_twist_relay wheel_twist_relay)
   install(PROGRAMS ${PROJECT_NAME}/${node}.py DESTINATION lib/${PROJECT_NAME} RENAME ${node})
 endforeach()
 install(PROGRAMS scripts/prepare_map.py DESTINATION lib/${PROJECT_NAME})

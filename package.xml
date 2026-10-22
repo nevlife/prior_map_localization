@@ -26,7 +26,6 @@
 
   <exec_depend>cyra_py</exec_depend>
   <exec_depend>fast_lio</exec_depend>
-  <exec_depend>flux_py</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>lidar_localization_ros2</exec_depend>
   <exec_depend>lifecycle_msgs</exec_depend>

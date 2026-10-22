@@ -33,7 +33,7 @@ def config(name):
     return os.path.join(SHARE, "config", f"{name}.param.yaml")
 
 
-def lidar_localization(map_config, sim):
+def lidar_localization(map_config, transport, sim):
     with open(map_config) as f:
         map_pcd = yaml.safe_load(f)["/**"]["ros__parameters"]["map_pcd"]
     node = LifecycleNode(
@@ -41,7 +41,11 @@ def lidar_localization(map_config, sim):
         executable="lidar_localization_node",
         name="lidar_localization",
         namespace="",
-        parameters=[config("lidar_localization"), sim, {"map_path": map_pcd}],
+        parameters=[
+            config("lidar_localization"),
+            sim,
+            {"map_path": map_pcd, "cloud_transport": transport},
+        ],
         remappings=[("/cloud", "/velodyne_points"), ("/twist", "/odometry/local_twist")],
         output="screen",
     )
@@ -117,7 +121,7 @@ def ekf(name, output, lio, sim):
 def launch_setup(context):
     arg = {
         n: LaunchConfiguration(n).perform(context)
-        for n in ("map_config", "use_sim_time", "lio", "lio_transport", "localizer")
+        for n in ("map_config", "use_sim_time", "lio", "lidar_transport", "localizer")
     }
     sim = {"use_sim_time": arg["use_sim_time"] == "true"}
     lio = arg["lio"] == "true"
@@ -177,35 +181,21 @@ def launch_setup(context):
             ],
         ),
     ]
-    if lio or use_prior_map_matcher:
-        # FAST-LIO and prior_map_matcher share one scan-start cloud and one transport.
-        actions.append(
-            Node(
-                package="prior_map_localization",
-                executable="scan_start_relay",
-                name="scan_start_relay",
-                parameters=[sim, {"transport": arg["lio_transport"]}],
-                remappings=[
-                    ("~/input/points", "/velodyne_points"),
-                    ("~/output/points", "/lio/points"),
-                ],
-            )
-        )
     if lio:
-        actions += fast_lio(arg["lio_transport"], sim)
+        actions += fast_lio(arg["lidar_transport"], sim)
     if use_prior_map_matcher:
         actions.append(
             IncludeLaunchDescription(
                 os.path.join(SHARE, "launch", "prior_map_matcher.launch.py"),
                 launch_arguments={
                     "map_config": arg["map_config"],
-                    "transport": arg["lio_transport"],
+                    "transport": arg["lidar_transport"],
                     "use_sim_time": arg["use_sim_time"],
                 }.items(),
             )
         )
     else:
-        actions += lidar_localization(arg["map_config"], sim)
+        actions += lidar_localization(arg["map_config"], arg["lidar_transport"], sim)
     return actions
 
 
@@ -215,8 +205,8 @@ def generate_launch_description():
             DeclareLaunchArgument("map_config", default_value=config("map")),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("lio", default_value="false"),
-            # The scan path to FAST-LIO and prior_map_matcher.
-            DeclareLaunchArgument("lio_transport", default_value="dds", choices=["dds", "flux"]),
+            # /velodyne_points: the same value as transport of bring_up lidar.launch.py.
+            DeclareLaunchArgument("lidar_transport", default_value="dds", choices=["dds", "flux"]),
             DeclareLaunchArgument(
                 "localizer",
                 default_value="lidar_localization",
