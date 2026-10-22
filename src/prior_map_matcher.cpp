@@ -84,7 +84,7 @@ PriorMapMatcher::PriorMapMatcher()
 void PriorMapMatcher::subscribe_points(const std::string & transport)
 {
   if (transport == "flux") {
-    flux_sub_ = flux::ros::create_subscription(
+    flux_sub_ = std::make_shared<flux::Subscription>(
       *this, "~/input/points", FluxCloud::kFingerprint, flux::QoS{},
       [this](const flux::FrameView & frame) {
         const FluxCloud::View v{frame};

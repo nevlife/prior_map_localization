@@ -4,7 +4,7 @@
 #include "prior_map_localization/registration.hpp"
 #include "prior_map_localization/scan.hpp"
 
-#include <flux/ros/subscription.hpp>
+#include <flux/subscription.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <diagnostic_msgs/msg/diagnostic_array.hpp>
@@ -34,7 +34,7 @@ public:
   void load_map();
 
   // Null on the dds transport; on flux the caller's executor must serve it.
-  std::shared_ptr<flux::ros::Subscription> flux_subscription() const { return flux_sub_; }
+  std::shared_ptr<flux::Subscription> flux_subscription() const { return flux_sub_; }
 
 private:
   struct TwistSample
@@ -98,7 +98,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initial_pose_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr dds_sub_;
-  std::shared_ptr<flux::ros::Subscription> flux_sub_;
+  std::shared_ptr<flux::Subscription> flux_sub_;
 };
 
 }  // namespace prior_map_localization
