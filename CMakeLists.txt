@@ -46,11 +46,22 @@ ament_target_dependencies(prior_map_matcher
   diagnostic_msgs geometry_msgs nav_msgs rclcpp sensor_msgs std_msgs tf2_eigen tf2_ros)
 target_compile_features(prior_map_matcher PRIVATE cxx_std_17)
 target_compile_options(prior_map_matcher PRIVATE -Wall -Wextra -Wpedantic)
-install(TARGETS prior_map_matcher DESTINATION lib/${PROJECT_NAME})
+
+add_executable(bbs_initialpose
+  src/bbs_initialpose.cpp
+  src/corner_features.cpp)
+target_include_directories(bbs_initialpose PRIVATE include thirdparty ${flux_std_adapters_INCLUDE_DIRS})
+target_link_libraries(bbs_initialpose flux_cpp::flux_cpp ${PCL_LIBRARIES})
+ament_target_dependencies(bbs_initialpose
+  geometry_msgs nav_msgs rclcpp sensor_msgs std_msgs tf2_eigen tf2_ros)
+target_compile_features(bbs_initialpose PRIVATE cxx_std_17)
+target_compile_options(bbs_initialpose PRIVATE -Wall -Wextra -Wpedantic)
+
+install(TARGETS prior_map_matcher bbs_initialpose DESTINATION lib/${PROJECT_NAME})
 
 ament_python_install_package(${PROJECT_NAME})
 foreach(node
-    gps_cov_floor graph_initialpose lio_twist_relay odom_twist_relay wheel_twist_relay)
+    gps_cov_floor lio_twist_relay wheel_twist_relay)
   install(PROGRAMS ${PROJECT_NAME}/${node}.py DESTINATION lib/${PROJECT_NAME} RENAME ${node})
 endforeach()
 install(PROGRAMS scripts/prepare_map.py DESTINATION lib/${PROJECT_NAME})

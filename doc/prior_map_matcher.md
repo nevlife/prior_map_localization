@@ -1,6 +1,6 @@
 # prior_map_matcher 설계
 
-사전 지도(PCD)에 라이다 스캔을 정합해 map 좌표의 절대 포즈를 낸다. `prior_map_localization` 패키지의 C++ 노드이고, lidar_localization_ros2를 대체한다. lidar_localization_ros2의 약 4,800줄 가운데 우리 설정에서 실제로 도는 경로만 옮겼다.
+사전 지도(PCD)에 라이다 스캔을 정합해 map 좌표의 절대 포즈를 낸다. `prior_map_localization` 패키지의 C++ 노드다. 예전에 쓰던 lidar_localization_ros2(지금은 SCV에서 뺐다)의 약 4,800줄 가운데 우리 설정에서 실제로 돌던 경로만 옮겼다.
 
 ## 구성
 
@@ -24,10 +24,10 @@ ndt_omp를 colcon 패키지로 두지 않는다. 원본이 export하는 타깃�
 velodyne_transform_node ─(dds|flux, lidar_transport)─> /velodyne_points ─┬─> fast_lio
                                                                          └─> prior_map_matcher
 /odometry/local (ekf_odom) ──────────────────────────────────────────────────> prior_map_matcher
-/initialpose (graph_initialpose) ────────────────────────────────────────────> prior_map_matcher
+/initialpose (bbs_initialpose) ──────────────────────────────────────────────> prior_map_matcher
 
 prior_map_matcher ─> /pcl_pose ─> ekf_map
-              ─> /reinitialization_requested ─> graph_initialpose
+              ─> /reinitialization_requested ─> bbs_initialpose
               ─> /alignment_status
 ```
 
@@ -41,7 +41,7 @@ prior_map_matcher ─> /pcl_pose ─> ekf_map
 | `~/debug/alignment_status` | `/alignment_status` | `diagnostic_msgs/DiagnosticArray` |
 
 - 스캔은 FAST-LIO와 같은 `/velodyne_points`를 받는다. flux에서는 두 노드가 같은 공유메모리 프레임을 복사 없이 읽는다. stamp는 스캔 시작이고 점 시간은 [0, 주기)다(드라이버 `timestamp_first_packet`, bring_up `lidar.param.yaml`).
-- 트위스트는 `ekf_odom`의 `Odometry`를 바로 받는다. lidar_localization용 `odom_twist_relay`가 필요 없다.
+- 트위스트는 `ekf_odom`의 `Odometry`를 바로 받는다.
 - TF는 내지 않는다. map->odom은 `ekf_map`이 맡는다.
 
 ## 노드, executor, 스레드
@@ -117,9 +117,23 @@ fitness는 두 엔진 모두 PCL `getFitnessScore()`라 같은 기준으로 판�
 
 ```bash
 ros2 launch prior_map_localization prior_map_matcher.launch.py map_config:=<map_pcd를 담은 param 파일> [transport:=flux]
-ros2 launch prior_map_localization localization.launch.py localizer:=prior_map_matcher [lio:=true]
+ros2 launch prior_map_localization localization.launch.py [lio:=true]
 ```
 
-지도 경로는 `config/map.param.yaml` 한 곳에 둔다. prior_map_matcher와 graph_initialpose가 같은 파일을 파라미터로 받는다.
+지도 경로는 `config/map.param.yaml` 한 곳에 둔다. prior_map_matcher와 bbs_initialpose가 같은 파일을 파라미터로 받는다.
+
+## 초기 자세 (bbs_initialpose)
+
+스캔 하나로 GPS 원 안의 x, y와 yaw 전체를 탐색해 `/initialpose`를 낸다. 차가 움직이지 않아도 된다.
+
+| 단계 | 내용 |
+| --- | --- |
+| 지도 | 번들의 `full_corner.pcd`를 xy로 투영해 0.5 m 점유 격자로 만든다 |
+| 스캔 | LIO-SAM featureExtraction과 같은 기준으로 모서리점을 뽑는다(`corner_features.cpp`). deskew와 roll/pitch 보정은 하지 않는다 |
+| 탐색 | `thirdparty/bbs`(rsasaki0109/lidar_localization_ros2의 BBS_2D, BSD-2)에 탐색 창을 더해 쓴다. 창은 GPS 중심, 반경 `clamp(3σ + 3 m/s × GPS 나이, 10, 30)` m다 |
+| 확정 | 점수가 `min_score` 이상인 결과의 map->odom이 4 s 안에 3번 1 m, 5도 안으로 맞으면 낸다 |
+| 높이 | NDT 지도에서 반경 2 m 점의 하위 5% 높이를 쓴다 |
+
+`/reinitialization_requested`가 참이면 다시 탐색한다. 파라미터는 loam_fgo_localization의 값에서 시작했고 아직 맞추지 않았다.
 
 ## 검증

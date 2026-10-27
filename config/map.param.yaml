@@ -1,5 +1,5 @@
-# The prior map: ndt_map_0p4.pcd from scripts/prepare_map.py and the road graph next to it.
+# The prior map: ndt_map_0p4.pcd from scripts/prepare_map.py and the bundle's corner layer.
 /**:
   ros__parameters:
     map_pcd: /home/nev/VNR_devel/SCV/maps/d2_20260813_v2/ndt_map_0p4.pcd
-    graph_json: /home/nev/VNR_devel/SCV/maps/d2_20260813_v2/graph.json
+    corner_pcd: /home/nev/VNR_devel/SCV/maps/d2_20260813_v2/full_corner.pcd

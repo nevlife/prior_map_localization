@@ -1,0 +1,33 @@
+# Starting values from loam_fgo_localization's global initialization on the same sensor and map.
+/**:
+  ros__parameters:
+    map_frame: map
+    base_frame: base_link
+    corners:  # LIO-SAM featureExtraction, as the map bundle was built
+      n_scan: 32
+      horizon_scan: 1812
+      min_range: 1.0
+      max_range: 100.0
+      edge_threshold: 1.0
+    search:
+      resolution: 0.5
+      yaw_resolution_deg: 1.0
+      pyramid_depth: 6
+      min_scan_range: 2.0
+      max_scan_range: 50.0
+      max_scan_points: 300
+      min_score: 0.3
+    gps:  # radius = clamp(radius_sigma_scale * sigma + speed_margin * age, min, max)
+      radius_sigma_scale: 3.0
+      min_radius: 10.0
+      max_radius: 30.0
+      speed_margin: 3.0
+    vote:  # agreeing map->odom estimates within timeout_sec
+      required: 3
+      xy_tolerance: 1.0
+      yaw_tolerance_deg: 5.0
+      timeout_sec: 4.0
+    ground_radius: 2.0
+    base_height: 0.0  # base_link is at ground level
+    initial_xy_sigma: 0.5
+    initial_yaw_sigma_deg: 2.0
