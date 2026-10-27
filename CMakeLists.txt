@@ -8,7 +8,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
-find_package(cyra_core REQUIRED)
+find_package(capa_core REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(flux_cpp REQUIRED)
 find_package(flux_std_adapters REQUIRED)
@@ -38,7 +38,7 @@ add_executable(prior_map_matcher
   src/scan.cpp)
 target_include_directories(prior_map_matcher PRIVATE include ${flux_std_adapters_INCLUDE_DIRS})
 target_link_libraries(prior_map_matcher
-  cyra_core::cyra_core
+  capa_core::capa_core
   flux_cpp::flux_cpp
   ndt_omp
   small_gicp::small_gicp)

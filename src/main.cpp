@@ -1,6 +1,6 @@
 #include "prior_map_localization/prior_map_matcher.hpp"
 
-#include <cyra/spec.hpp>
+#include <capa/spec.hpp>
 #include <flux/executor.hpp>
 #include <rclcpp/rclcpp.hpp>
 
@@ -11,7 +11,7 @@ int main(int argc, char ** argv)
   rclcpp::init(argc, argv);
   auto node = std::make_shared<prior_map_localization::PriorMapMatcher>();
   // Every scan runs on this thread, so its stage covers the whole node.
-  const cyra::Report report = cyra::bind(node->get_fully_qualified_name());
+  const capa::Report report = capa::bind(node->get_fully_qualified_name());
   if (!report.ok()) {
     RCLCPP_WARN(node->get_logger(), "%s", report.to_string().c_str());
   }

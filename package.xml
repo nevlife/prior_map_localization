@@ -10,7 +10,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
 
-  <depend>cyra_core</depend>
+  <depend>capa_core</depend>
   <depend>diagnostic_msgs</depend>
   <depend>flux_cpp</depend>
   <depend>flux_std_adapters</depend>
@@ -24,7 +24,7 @@
   <depend>tf2_eigen</depend>
   <depend>tf2_ros</depend>
 
-  <exec_depend>cyra_py</exec_depend>
+  <exec_depend>capa_py</exec_depend>
   <exec_depend>fast_lio</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>lidar_localization_ros2</exec_depend>

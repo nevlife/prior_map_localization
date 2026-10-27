@@ -212,9 +212,9 @@ def generate_launch_description():
                 default_value="lidar_localization",
                 choices=["lidar_localization", "prior_map_matcher"],
             ),
-            # Empty leaves every thread as it starts; config/cyra_chain.yaml is the schedule.
-            DeclareLaunchArgument("cyra_spec", default_value=""),
-            SetEnvironmentVariable("CYRA_SPEC", LaunchConfiguration("cyra_spec")),
+            # Empty leaves every thread as it starts; config/capa_chain.yaml is the schedule.
+            DeclareLaunchArgument("capa_spec", default_value=""),
+            SetEnvironmentVariable("CAPA_SPEC", LaunchConfiguration("capa_spec")),
             OpaqueFunction(function=launch_setup),
         ]
     )

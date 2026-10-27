@@ -5,7 +5,7 @@ FAST-LIO publishes the IMU pose in its start frame and no twist, so the twist is
 between consecutive scans, moved from the IMU to base_link.
 """
 
-import cyra
+import capa
 import numpy as np
 import rclpy
 from geometry_msgs.msg import TwistWithCovarianceStamped
@@ -90,7 +90,7 @@ class LioTwistRelay(Node):
 def main():
     rclpy.init()
     node = LioTwistRelay()
-    cyra.bind(node.get_fully_qualified_name())
+    capa.bind(node.get_fully_qualified_name())
     rclpy.spin(node)
 
 

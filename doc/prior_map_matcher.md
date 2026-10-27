@@ -50,7 +50,7 @@ prior_map_matcher ─> /pcl_pose ─> ekf_map
 - lifecycle, 컴포지션을 쓰지 않는다. 컨테이너는 자기 executor를 써서 flux 구독이 돌지 않고, 프로세스 간 복사 제거는 flux가 맡는다.
 - 단일 스레드 executor다. `dds`는 `rclcpp::executors::SingleThreadedExecutor`, `flux`는 `flux::Executor`(ROS 구독도 함께 돈다)를 쓴다. 상태를 한 스레드만 만지므로 mutex가 없다.
 - 병렬화는 정합 엔진 안의 OpenMP뿐이다(`registration.num_threads`).
-- `main`은 노드를 만든 뒤 `cyra::bind`로 메인 스레드를 stage에 걸고, 그다음 `load_map()`을 부른다. 타깃을 만드는 첫 정합이 OpenMP 팀을 만들기 때문에, 순서를 바꾸면 팀 스레드가 `children: inherit`를 물려받지 못한다.
+- `main`은 노드를 만든 뒤 `capa::bind`로 메인 스레드를 stage에 걸고, 그다음 `load_map()`을 부른다. 타깃을 만드는 첫 정합이 OpenMP 팀을 만들기 때문에, 순서를 바꾸면 팀 스레드가 `children: inherit`를 물려받지 못한다.
 
 ## 스캔 하나의 처리
 
