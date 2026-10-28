@@ -4,6 +4,8 @@
 
 #include <pclomp/ndt_omp.h>
 
+#include <chrono>
+#include <limits>
 #include <stdexcept>
 
 namespace prior_map_localization
@@ -62,6 +64,24 @@ Registration make_registration(rclcpp::Node & node)
     return make_small_gicp(node, threads, max_iterations);
   }
   throw std::invalid_argument("registration.method must be ndt_omp or small_gicp, got " + method);
+}
+
+Alignment align(Registration & registration, const Cloud::Ptr & cloud, const Eigen::Matrix4f & seed)
+{
+  // pcl::Registration::align returns early on an empty source and keeps the previous result.
+  if (cloud->empty()) {
+    return {seed, false, std::numeric_limits<double>::quiet_NaN(), 0.0, 0};
+  }
+  auto & engine = *registration.engine;
+  engine.setInputSource(cloud);
+  Cloud aligned;
+  const auto start = std::chrono::steady_clock::now();
+  engine.align(aligned, seed);
+  const double time_sec =
+    std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  return {
+    engine.getFinalTransformation(), engine.hasConverged(), engine.getFitnessScore(), time_sec,
+    registration.iterations()};
 }
 
 }  // namespace prior_map_localization

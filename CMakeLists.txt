@@ -68,4 +68,12 @@ install(PROGRAMS scripts/prepare_map.py DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_registration test/test_registration.cpp src/registration.cpp)
+  target_include_directories(test_registration PRIVATE include)
+  target_link_libraries(test_registration ndt_omp small_gicp::small_gicp)
+  ament_target_dependencies(test_registration rclcpp)
+endif()
+
 ament_package()

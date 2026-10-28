@@ -44,22 +44,12 @@ private:
     Eigen::Vector3f angular;
   };
 
-  struct Alignment
-  {
-    Eigen::Matrix4f pose;
-    bool converged;
-    double fitness;
-    double time_sec;
-    int iterations;
-  };
-
   void subscribe_points(const std::string & transport);
   void on_points(const RawScan & raw);
   void on_odom(const nav_msgs::msg::Odometry & msg);
   void on_initial_pose(const geometry_msgs::msg::PoseWithCovarianceStamped & msg);
 
   Eigen::Matrix4f predict(double stamp_sec, double dt_sec) const;
-  Alignment align(const Cloud::Ptr & cloud, const Eigen::Matrix4f & seed);
   void accept(const Eigen::Matrix4f & pose, double stamp_sec, double fitness);
   std::optional<Eigen::Affine3f> base_from_sensor(const std::string & frame_id);
   void publish_status(

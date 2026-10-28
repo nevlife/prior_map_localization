@@ -202,7 +202,7 @@ void PriorMapMatcher::on_points(const RawScan & raw)
   const double dt =
     std::clamp(scan.end_stamp_sec - predicted_stamp_sec_, 0.0, max_prediction_dt_sec_);
   const Eigen::Matrix4f seed = predict(scan.end_stamp_sec, dt);
-  const Alignment result = align(scan.cloud, seed);
+  const Alignment result = align(registration_, scan.cloud, seed);
   const bool accepted = result.converged && result.fitness <= fitness_threshold_;
   if (accepted) {
     accept(result.pose, scan.end_stamp_sec, result.fitness);
@@ -239,21 +239,6 @@ Eigen::Matrix4f PriorMapMatcher::predict(double stamp_sec, double dt_sec) const
                                    Eigen::AngleAxisf(w.z(), Eigen::Vector3f::UnitZ()))
                                     .toRotationMatrix();
   return pose.matrix();
-}
-
-PriorMapMatcher::Alignment PriorMapMatcher::align(
-  const Cloud::Ptr & cloud, const Eigen::Matrix4f & seed)
-{
-  auto & engine = *registration_.engine;
-  engine.setInputSource(cloud);
-  Cloud aligned;
-  const auto start = std::chrono::steady_clock::now();
-  engine.align(aligned, seed);
-  const double time_sec =
-    std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-  return {
-    engine.getFinalTransformation(), engine.hasConverged(), engine.getFitnessScore(), time_sec,
-    registration_.iterations()};
 }
 
 void PriorMapMatcher::accept(const Eigen::Matrix4f & pose, double stamp_sec, double fitness)
@@ -309,9 +294,10 @@ void PriorMapMatcher::publish_status(
   status.hardware_id = registration_.method;
   status.level = accepted ? diagnostic_msgs::msg::DiagnosticStatus::OK
                           : diagnostic_msgs::msg::DiagnosticStatus::WARN;
-  status.message = accepted            ? "ok"
-                   : !result.converged ? "registration_not_converged"
-                                       : "fitness_score_over_threshold_rejected";
+  status.message = accepted              ? "ok"
+                   : scan.cloud->empty() ? "empty_scan"
+                   : !result.converged   ? "registration_not_converged"
+                                         : "fitness_score_over_threshold_rejected";
   status.values = {
     kv("fitness_score", std::to_string(result.fitness)),
     kv("alignment_time_sec", std::to_string(result.time_sec)),
