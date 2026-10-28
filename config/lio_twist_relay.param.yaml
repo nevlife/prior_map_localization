@@ -1,6 +1,6 @@
 /**:
   ros__parameters:
     imu_frame: vectornav
-    vx_sigma: 0.01  # tight so LIO dominates wheel and gyro; they take over when LIO stops
-    vy_sigma: 0.01
-    wz_sigma: 0.005
+    vx_sigma: 0.14  # scan-to-scan noise while driving (10-21 bag); 7x the standstill noise
+    vy_sigma: 0.12
+    wz_sigma: 0.08

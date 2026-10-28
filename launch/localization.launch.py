@@ -1,6 +1,6 @@
-"""NDT scan matching fused with wheel, IMU, GPS and optionally FAST-LIO (robot_localization).
+"""NDT scan matching fused with wheel, IMU, GPS and FAST-LIO (robot_localization).
 
-  ros2 launch prior_map_localization localization.launch.py [map_config:=<file>] [lio:=true]
+  ros2 launch prior_map_localization localization.launch.py [map_config:=<file>] [lio:=false]
 
 map_config names the map files (config/map.param.yaml by default).
 """
@@ -141,7 +141,7 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("map_config", default_value=config("map")),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
-            DeclareLaunchArgument("lio", default_value="false"),
+            DeclareLaunchArgument("lio", default_value="true"),
             # /velodyne_points: the same value as transport of bring_up lidar.launch.py.
             DeclareLaunchArgument("lidar_transport", default_value="dds", choices=["dds", "flux"]),
             # Empty leaves every thread as it starts; config/capa_chain.yaml is the schedule.
