@@ -1,8 +1,8 @@
 #ifndef PRIOR_MAP_LOCALIZATION__PRIOR_MAP_MATCHER_HPP_
 #define PRIOR_MAP_LOCALIZATION__PRIOR_MAP_MATCHER_HPP_
 
-#include "prior_map_localization/registration.hpp"
-#include "prior_map_localization/scan.hpp"
+#include "registration.hpp"
+#include "scan.hpp"
 
 #include <flux/subscription.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -28,13 +28,7 @@ namespace prior_map_localization
 class PriorMapMatcher : public rclcpp::Node
 {
 public:
-  PriorMapMatcher();
-
-  // Run after the thread is bound: building the target starts the OpenMP team.
-  void load_map();
-
-  // Null on the dds transport; on flux the caller's executor must serve it.
-  std::shared_ptr<flux::Subscription> flux_subscription() const { return flux_sub_; }
+  explicit PriorMapMatcher(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
   struct TwistSample
@@ -44,7 +38,11 @@ private:
     Eigen::Vector3f angular;
   };
 
+  Registration make_registration();
+  void load_map();
   void subscribe_points(const std::string & transport);
+  void subscribe_flux_points();
+  void subscribe_dds_points();
   void on_points(const RawScan & raw);
   void on_odom(const nav_msgs::msg::Odometry & msg);
   void on_initial_pose(const geometry_msgs::msg::PoseWithCovarianceStamped & msg);
@@ -79,6 +77,7 @@ private:
   int consecutive_rejects_ = 0;
   std::deque<TwistSample> twists_;
   std::optional<Eigen::Affine3f> base_from_sensor_;
+  bool map_loaded_ = false;
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
@@ -89,6 +88,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initial_pose_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr dds_sub_;
   std::shared_ptr<flux::Subscription> flux_sub_;
+  rclcpp::TimerBase::SharedPtr load_timer_;
 };
 
 }  // namespace prior_map_localization

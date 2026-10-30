@@ -4,3 +4,10 @@
     vx_sigma: 0.14  # scan-to-scan noise while driving (10-21 bag); 7x the standstill noise
     vy_sigma: 0.12
     wz_sigma: 0.08
+    # The driving gyro bias moved between -0.02 and +0.15 deg/s within minutes on the 10-29 bag.
+    bias_time_constant_sec: 10.0
+    # Gap limit = 1 deg + 3 % of the 2 s turn: no trips on the 10-29 bag, a cropped LiDAR tripped in 3.5 s.
+    check_window_sec: 2.0
+    check_threshold_deg: 1.0
+    check_turn_ratio: 0.03
+    hold_sec: 30.0

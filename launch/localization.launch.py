@@ -12,35 +12,27 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.actions import IncludeLaunchDescription
 from launch.actions import OpaqueFunction
-from launch.actions import SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import ComposableNodeContainer
 from launch_ros.actions import Node
+from launch_ros.descriptions import ComposableNode
 
 SHARE = get_package_share_directory("prior_map_localization")
+CONTAINER = "localization_container"
 
 
 def config(name):
     return os.path.join(SHARE, "config", f"{name}.param.yaml")
 
 
-def fast_lio(transport, sim):
-    return [
-        # FAST-LIO broadcasts camera_init->body; ekf_odom owns odom->base_link.
-        Node(
-            package="fast_lio",
-            executable="fastlio_mapping",
-            name="fast_lio",
-            parameters=[config("fast_lio"), sim, {"common.lid_transport": transport}],
-            remappings=[("/tf", "/fast_lio/tf"), ("/Odometry", "/lio/odometry")],
-        ),
-        Node(
-            package="prior_map_localization",
-            executable="lio_twist_relay",
-            name="lio_twist_relay",
-            parameters=[config("lio_twist_relay"), sim],
-            remappings=[("~/input/odom", "/lio/odometry"), ("~/output/twist", "/lio/twist")],
-        ),
-    ]
+def component(name, plugin, parameters, remappings):
+    return ComposableNode(
+        package="prior_map_localization",
+        plugin=f"prior_map_localization::{plugin}",
+        name=name,
+        parameters=parameters,
+        remappings=remappings,
+    )
 
 
 def ekf(name, output, lio, sim):
@@ -60,33 +52,68 @@ def launch_setup(context):
     }
     sim = {"use_sim_time": arg["use_sim_time"] == "true"}
     lio = arg["lio"] == "true"
+    components = [
+        component(
+            "wheel_twist_relay",
+            "WheelTwistRelay",
+            [config("wheel_twist_relay"), sim],
+            [("~/input/velocity", "/hunter/velocity"), ("~/output/twist", "/wheel/twist")],
+        ),
+        component(
+            "gps_cov_floor",
+            "GpsCovFloor",
+            [config("gps_cov_floor"), sim],
+            [("~/input/fix", "/ublox_gps_node/fix"), ("~/output/fix", "/gps/fix_floored")],
+        ),
+        component(
+            "bbs_initialpose",
+            "BbsInitialPose",
+            [
+                config("bbs_initialpose"),
+                arg["map_config"],
+                sim,
+                {"transport": arg["lidar_transport"]},
+            ],
+            [
+                ("~/input/points", "/velodyne_points"),
+                ("~/input/gps", "/odometry/gps"),
+                ("~/input/odom", "/odometry/local"),
+                ("~/input/reinitialization_requested", "/reinitialization_requested"),
+                ("~/output/initialpose", "/initialpose"),
+                ("~/output/set_pose", "/ekf_map/set_pose"),
+            ],
+        ),
+    ]
+    if lio:
+        components.append(
+            component(
+                "lio_twist_relay",
+                "LioTwistRelay",
+                [config("lio_twist_relay"), sim],
+                [
+                    ("~/input/odom", "/lio/odometry"),
+                    ("~/input/imu", "/vectornav/imu"),
+                    ("~/output/twist", "/lio/twist"),
+                    ("~/output/imu", "/imu/corrected"),
+                ],
+            )
+        )
     actions = [
+        # One thread per callback group; with CAPA_SPEC set, capa binds the groups its file names.
+        ComposableNodeContainer(
+            package="capa_ros",
+            executable="capa_component_container",
+            name=CONTAINER,
+            namespace="",
+            composable_node_descriptions=components,
+            output="screen",
+        ),
         Node(
             package="tf2_ros",
             executable="static_transform_publisher",
             name="rear_axle_tf",
             arguments=["--x", "-0.28", "--frame-id", "base_link", "--child-frame-id", "rear_axle"],
             parameters=[sim],
-        ),
-        Node(
-            package="prior_map_localization",
-            executable="wheel_twist_relay",
-            name="wheel_twist_relay",
-            parameters=[config("wheel_twist_relay"), sim],
-            remappings=[
-                ("~/input/velocity", "/hunter/velocity"),
-                ("~/output/twist", "/wheel/twist"),
-            ],
-        ),
-        Node(
-            package="prior_map_localization",
-            executable="gps_cov_floor",
-            name="gps_cov_floor",
-            parameters=[config("gps_cov_floor"), sim],
-            remappings=[
-                ("~/input/fix", "/ublox_gps_node/fix"),
-                ("~/output/fix", "/gps/fix_floored"),
-            ],
         ),
         ekf("ekf_odom", "/odometry/local", lio, sim),
         ekf("ekf_map", "/odometry/global", lio, sim),
@@ -101,28 +128,22 @@ def launch_setup(context):
                 ("odometry/filtered", "/odometry/global"),
             ],
         ),
-        Node(
-            package="prior_map_localization",
-            executable="bbs_initialpose",
-            name="bbs_initialpose",
-            parameters=[
-                config("bbs_initialpose"),
-                arg["map_config"],
-                sim,
-                {"transport": arg["lidar_transport"]},
-            ],
-            remappings=[
-                ("~/input/points", "/velodyne_points"),
-                ("~/input/gps", "/odometry/gps"),
-                ("~/input/odom", "/odometry/local"),
-                ("~/input/reinitialization_requested", "/reinitialization_requested"),
-                ("~/output/initialpose", "/initialpose"),
-                ("~/output/set_pose", "/ekf_map/set_pose"),
-            ],
-        ),
     ]
     if lio:
-        actions += fast_lio(arg["lidar_transport"], sim)
+        # FAST-LIO broadcasts camera_init->body; ekf_odom owns odom->base_link.
+        actions.append(
+            Node(
+                package="fast_lio",
+                executable="fastlio_mapping",
+                name="fast_lio",
+                parameters=[
+                    config("fast_lio"),
+                    sim,
+                    {"common.lid_transport": arg["lidar_transport"]},
+                ],
+                remappings=[("/tf", "/fast_lio/tf"), ("/Odometry", "/lio/odometry")],
+            )
+        )
     actions.append(
         IncludeLaunchDescription(
             os.path.join(SHARE, "launch", "prior_map_matcher.launch.py"),
@@ -130,6 +151,7 @@ def launch_setup(context):
                 "map_config": arg["map_config"],
                 "transport": arg["lidar_transport"],
                 "use_sim_time": arg["use_sim_time"],
+                "container": "/" + CONTAINER,
             }.items(),
         )
     )
@@ -144,9 +166,6 @@ def generate_launch_description():
             DeclareLaunchArgument("lio", default_value="true"),
             # /velodyne_points: the same value as transport of bring_up lidar.launch.py.
             DeclareLaunchArgument("lidar_transport", default_value="dds", choices=["dds", "flux"]),
-            # Empty leaves every thread as it starts; config/capa_chain.yaml is the schedule.
-            DeclareLaunchArgument("capa_spec", default_value=""),
-            SetEnvironmentVariable("CAPA_SPEC", LaunchConfiguration("capa_spec")),
             OpaqueFunction(function=launch_setup),
         ]
     )

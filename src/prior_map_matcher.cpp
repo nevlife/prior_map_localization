@@ -1,4 +1,4 @@
-#include "prior_map_localization/prior_map_matcher.hpp"
+#include "prior_map_matcher.hpp"
 
 #include <tf2_eigen/tf2_eigen.hpp>
 
@@ -49,9 +49,9 @@ diagnostic_msgs::msg::KeyValue kv(const std::string & key, const std::string & v
 
 }  // namespace
 
-PriorMapMatcher::PriorMapMatcher()
-: Node("prior_map_matcher"),
-  registration_(make_registration(*this)),
+PriorMapMatcher::PriorMapMatcher(const rclcpp::NodeOptions & options)
+: Node("prior_map_matcher", options),
+  registration_(make_registration()),
   map_pcd_(declare_parameter<std::string>("map_pcd")),
   map_frame_(declare_parameter<std::string>("map_frame")),
   base_frame_(declare_parameter<std::string>("base_frame")),
@@ -79,36 +79,82 @@ PriorMapMatcher::PriorMapMatcher()
     "~/input/initialpose", 1,
     [this](const geometry_msgs::msg::PoseWithCovarianceStamped & msg) { on_initial_pose(msg); });
   subscribe_points(declare_parameter<std::string>("transport"));
+  // The container binds the group thread before its first callback, and building the target starts
+  // the OpenMP team, so the map loads in that callback for the team to inherit the stage.
+  load_timer_ = create_wall_timer(std::chrono::seconds(0), [this]() {
+    load_timer_->cancel();
+    load_map();
+  });
+}
+
+// Declares the registration.* parameters of the selected method only.
+Registration PriorMapMatcher::make_registration()
+{
+  const auto method = declare_parameter<std::string>("registration.method");
+  const auto threads = static_cast<int>(declare_parameter<int>("registration.num_threads"));
+  const auto max_iterations =
+    static_cast<int>(declare_parameter<int>("registration.max_iterations"));
+  if (method == "ndt_omp") {
+    const std::string p = "registration.ndt_omp.";
+    return make_ndt_omp(
+      {declare_parameter<double>(p + "resolution"), declare_parameter<double>(p + "step_size"),
+       declare_parameter<double>(p + "transformation_epsilon"),
+       declare_parameter<bool>(p + "line_search")},
+      threads, max_iterations);
+  }
+  if (method == "small_gicp") {
+    const std::string p = "registration.small_gicp.";
+    return make_small_gicp(
+      {declare_parameter<std::string>(p + "type"),
+       static_cast<int>(declare_parameter<int>(p + "num_neighbors")),
+       declare_parameter<double>(p + "max_correspondence_distance"),
+       declare_parameter<double>(p + "voxel_resolution"),
+       declare_parameter<double>(p + "translation_epsilon"),
+       declare_parameter<double>(p + "rotation_epsilon")},
+      threads, max_iterations);
+  }
+  throw std::invalid_argument("registration.method must be ndt_omp or small_gicp, got " + method);
 }
 
 void PriorMapMatcher::subscribe_points(const std::string & transport)
 {
   if (transport == "flux") {
-    flux_sub_ = std::make_shared<flux::Subscription>(
-      *this, "~/input/points", FluxCloud::kFingerprint, flux::QoS{},
-      [this](const flux::FrameView & frame) {
-        const FluxCloud::View v{frame};
-        FieldOffsets fields;
-        for (std::size_t i = 0; i < v.fields__size(); ++i) {
-          fields.emplace_back(v.fields(i).name(), v.fields(i).offset());
-        }
-        std::optional<RawScan> raw = raw_scan_fields(fields);
-        if (!raw) {
-          RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), kThrottleMs, "scan lacks x/y/z/time");
-          return;
-        }
-        raw->data = v.data().data();
-        raw->count = std::size_t{v.width()} * v.height();
-        raw->step = v.point_step();
-        raw->stamp_sec = v.header__sec() + v.header__nanosec() * 1e-9;
-        raw->frame_id = v.header__frame_id();
-        on_points(*raw);
-      });
+    subscribe_flux_points();
     return;
   }
   if (transport != "dds") {
     throw std::invalid_argument("transport must be dds or flux, got " + transport);
   }
+  subscribe_dds_points();
+}
+
+void PriorMapMatcher::subscribe_flux_points()
+{
+  flux_sub_ = std::make_shared<flux::Subscription>(
+    *this, "~/input/points", FluxCloud::kFingerprint, flux::QoS{},
+    [this](const flux::FrameView & frame) {
+      const FluxCloud::View v{frame};
+      FieldOffsets fields;
+      for (std::size_t i = 0; i < v.fields__size(); ++i) {
+        fields.emplace_back(v.fields(i).name(), v.fields(i).offset());
+      }
+      std::optional<RawScan> raw = raw_scan_fields(fields);
+      if (!raw) {
+        RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), kThrottleMs, "scan lacks x/y/z/time");
+        return;
+      }
+      raw->data = v.data().data();
+      raw->count = std::size_t{v.width()} * v.height();
+      raw->step = v.point_step();
+      raw->stamp_sec = v.header__sec() + v.header__nanosec() * 1e-9;
+      raw->frame_id = v.header__frame_id();
+      on_points(*raw);
+    });
+  flux_sub_->add_to_callback_group(*this);
+}
+
+void PriorMapMatcher::subscribe_dds_points()
+{
   // Large clouds go reliable: best effort loses a whole scan to one lost fragment.
   dds_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
     "~/input/points", rclcpp::QoS(kCloudQueueDepth).reliable(),
@@ -150,6 +196,7 @@ void PriorMapMatcher::load_map()
   RCLCPP_INFO(
     get_logger(), "%s target from %zu map points ready in %.1f s", registration_.method.c_str(),
     map->size(), std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+  map_loaded_ = true;
 }
 
 void PriorMapMatcher::on_odom(const nav_msgs::msg::Odometry & msg)
@@ -188,7 +235,7 @@ void PriorMapMatcher::on_initial_pose(const geometry_msgs::msg::PoseWithCovarian
 
 void PriorMapMatcher::on_points(const RawScan & raw)
 {
-  if (!initial_pose_stamp_sec_) {
+  if (!map_loaded_ || !initial_pose_stamp_sec_) {
     return;
   }
   const std::optional<Eigen::Affine3f> sensor = base_from_sensor(raw.frame_id);
@@ -320,3 +367,6 @@ void PriorMapMatcher::publish_status(
 }
 
 }  // namespace prior_map_localization
+
+#include <rclcpp_components/register_node_macro.hpp>
+RCLCPP_COMPONENTS_REGISTER_NODE(prior_map_localization::PriorMapMatcher)

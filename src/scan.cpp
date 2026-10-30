@@ -1,4 +1,4 @@
-#include "prior_map_localization/scan.hpp"
+#include "scan.hpp"
 
 #include <pcl/filters/voxel_grid.h>
 

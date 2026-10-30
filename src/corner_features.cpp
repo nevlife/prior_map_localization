@@ -1,4 +1,4 @@
-#include "prior_map_localization/corner_features.hpp"
+#include "corner_features.hpp"
 
 #include <algorithm>
 #include <cmath>

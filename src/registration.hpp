@@ -1,9 +1,7 @@
 #ifndef PRIOR_MAP_LOCALIZATION__REGISTRATION_HPP_
 #define PRIOR_MAP_LOCALIZATION__REGISTRATION_HPP_
 
-#include "prior_map_localization/scan.hpp"
-
-#include <rclcpp/node.hpp>
+#include "scan.hpp"
 
 #include <pcl/registration/registration.h>
 
@@ -34,8 +32,27 @@ struct Alignment
   int iterations;
 };
 
-// Declares the registration.* parameters of the selected method only.
-Registration make_registration(rclcpp::Node & node);
+struct NdtOmpParams
+{
+  double resolution = 0.0;
+  double step_size = 0.0;
+  double transformation_epsilon = 0.0;
+  bool line_search = false;
+};
+
+struct SmallGicpParams
+{
+  std::string type;
+  int num_neighbors = 0;
+  double max_correspondence_distance = 0.0;
+  double voxel_resolution = 0.0;
+  double translation_epsilon = 0.0;
+  double rotation_epsilon = 0.0;
+};
+
+Registration make_ndt_omp(const NdtOmpParams & params, int threads, int max_iterations);
+
+Registration make_small_gicp(const SmallGicpParams & params, int threads, int max_iterations);
 
 Alignment align(Registration & registration, const Cloud::Ptr & cloud, const Eigen::Matrix4f & seed);
 

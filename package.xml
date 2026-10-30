@@ -3,14 +3,12 @@
 <package format="3">
   <name>prior_map_localization</name>
   <version>0.1.0</version>
-  <description>Hunter localization on a prior PCD map: scan-to-map matching (prior_map_matcher), FAST-LIO odometry and robot_localization EKFs.</description>
+  <description>scan-to-map matching (prior_map_matcher), FAST-LIO odometry and robot_localization EKFs.</description>
   <maintainer email="nevlife000720@gmail.com">nev</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
-  <buildtool_depend>ament_cmake_python</buildtool_depend>
 
-  <depend>capa_core</depend>
   <depend>diagnostic_msgs</depend>
   <depend>flux_cpp</depend>
   <depend>flux_std_adapters</depend>
@@ -18,17 +16,17 @@
   <depend>libpcl-all-dev</depend>
   <depend>nav_msgs</depend>
   <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
   <depend>sensor_msgs</depend>
   <depend>small_gicp</depend>
   <depend>std_msgs</depend>
   <depend>tf2_eigen</depend>
   <depend>tf2_ros</depend>
 
-  <exec_depend>capa_py</exec_depend>
+  <exec_depend>capa_ros</exec_depend>
   <exec_depend>fast_lio</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
-  <exec_depend>rclpy</exec_depend>
   <exec_depend>robot_localization</exec_depend>
 
   <test_depend>ament_cmake_gtest</test_depend>

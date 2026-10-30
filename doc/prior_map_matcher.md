@@ -8,9 +8,9 @@
 | --- | --- |
 | `thirdparty/ndt_omp` | 서브모듈(nevlife/ndt_omp `jazzy`, koide3 원본 + line search 스위치). 이 패키지 CMake가 정적 라이브러리로 빌드한다 |
 | `small_gicp` (작업공간의 nevlife 포크) | 두 번째 정합 엔진 |
-| `include/prior_map_localization/`, `src/` | 노드. 직접 작성 코드 규칙을 따른다 |
+| `src/` | 노드. 직접 작성 코드 규칙을 따른다 |
 | `config/prior_map_matcher.param.yaml` | 노드 파라미터 전부. `map_pcd`, `transport`만 launch가 넘긴다 |
-| `launch/prior_map_matcher.launch.py` | 노드 단독 실행. `localization.launch.py`가 include한다 |
+| `launch/prior_map_matcher.launch.py` | 노드를 컨테이너에 올린다. `container`를 주면 그 컨테이너에, 없으면 자기 `capa_component_container`에 올린다. `localization.launch.py`가 include한다 |
 
 ndt_omp를 colcon 패키지로 두지 않는다. 원본이 export하는 타깃이 QHULL, VTK 등 PCL 전체를 끌고 오고, `ndt_omp_ros2`와 같은 `include/pclomp`를 설치한다.
 
@@ -47,10 +47,10 @@ prior_map_matcher ─> /pcl_pose ─> ekf_map
 ## 노드, executor, 스레드
 
 - 노드는 하나다. 전처리 결과를 쓰는 곳이 정합 하나뿐이라 나누면 점군 전달만 늘어난다. 지도는 시작할 때 파일에서 읽는다.
-- lifecycle, 컴포지션을 쓰지 않는다. 컨테이너는 자기 executor를 써서 flux 구독이 돌지 않고, 프로세스 간 복사 제거는 flux가 맡는다.
-- 단일 스레드 executor다. `dds`는 `rclcpp::executors::SingleThreadedExecutor`, `flux`는 `flux::Executor`(ROS 구독도 함께 돈다)를 쓴다. 상태를 한 스레드만 만지므로 mutex가 없다.
+- 컴포넌트(`prior_map_localization::PriorMapMatcher`)다. lifecycle은 쓰지 않는다. `capa_component_container`(flux `ComponentManager`)에서 돈다. 이 컨테이너는 콜백 그룹마다 스레드 하나를 두고, `flux` 구독도 그룹에 넣으면(`add_to_callback_group`) 그 스레드에서 돌린다. rclcpp의 `component_container`에서는 flux 구독이 돌지 않는다.
+- 콜백은 모두 기본 그룹 하나에 있다. 상태를 한 스레드만 만지므로 mutex가 없다.
 - 병렬화는 정합 엔진 안의 OpenMP뿐이다(`registration.num_threads`).
-- `main`은 노드를 만든 뒤 `capa::bind`로 메인 스레드를 stage에 걸고, 그다음 `load_map()`을 부른다. 타깃을 만드는 첫 정합이 OpenMP 팀을 만들기 때문에, 순서를 바꾸면 팀 스레드가 `children: inherit`를 물려받지 못한다.
+- 컨테이너는 그룹 스레드를 첫 콜백 전에 stage에 건다. 그래서 `load_map()`은 생성자가 아니라 첫 콜백(한 번만 도는 타이머)에서 부른다. 타깃을 만드는 첫 정합이 OpenMP 팀을 만들기 때문에, 생성자에서 부르면 팀 스레드가 `children: inherit`를 물려받지 못한다. 지도를 읽기 전에 온 스캔은 버린다.
 
 ## 스캔 하나의 처리
 
@@ -116,7 +116,7 @@ fitness는 두 엔진 모두 PCL `getFitnessScore()`라 같은 기준으로 판�
 ## 실행
 
 ```bash
-ros2 launch prior_map_localization prior_map_matcher.launch.py map_config:=<map_pcd를 담은 param 파일> [transport:=flux]
+ros2 launch prior_map_localization prior_map_matcher.launch.py map_config:=<map_pcd를 담은 param 파일> [transport:=flux] [container:=/<컨테이너>]
 ros2 launch prior_map_localization localization.launch.py [lio:=true]
 ```
 

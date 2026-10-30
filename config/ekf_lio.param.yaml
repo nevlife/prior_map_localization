@@ -1,8 +1,10 @@
-# Added to both EKFs when lio:=true: the FAST-LIO body twist, yaw rate included.
+# Added to both EKFs when lio:=true. Yaw rate comes from the IMU with the bias that LIO observes,
+# so the LIO twist adds only the body velocity.
 /**:
   ros__parameters:
+    imu0: /imu/corrected
     twist1: /lio/twist
     twist1_config: [false, false, false, false, false, false,
-                    true, true, false, false, false, true,
+                    true, true, false, false, false, false,
                     false, false, false]
     twist1_queue_size: 10

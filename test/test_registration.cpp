@@ -1,12 +1,10 @@
-#include "prior_map_localization/registration.hpp"
+#include "registration.hpp"
 
 #include <gtest/gtest.h>
 #include <pcl/common/transforms.h>
-#include <rclcpp/rclcpp.hpp>
 
 #include <memory>
 #include <string>
-#include <vector>
 
 namespace prior_map_localization
 {
@@ -29,24 +27,9 @@ Cloud::Ptr make_corner()
 
 Registration make(const std::string & method, int max_iterations)
 {
-  rclcpp::NodeOptions options;
-  options.parameter_overrides({
-    {"registration.method", method},
-    {"registration.num_threads", 2},
-    {"registration.max_iterations", max_iterations},
-    {"registration.ndt_omp.resolution", 1.0},
-    {"registration.ndt_omp.step_size", 0.1},
-    {"registration.ndt_omp.transformation_epsilon", 0.01},
-    {"registration.ndt_omp.line_search", false},
-    {"registration.small_gicp.type", std::string("GICP")},
-    {"registration.small_gicp.num_neighbors", 20},
-    {"registration.small_gicp.max_correspondence_distance", 2.0},
-    {"registration.small_gicp.voxel_resolution", 1.0},
-    {"registration.small_gicp.translation_epsilon", 0.0005},
-    {"registration.small_gicp.rotation_epsilon", 0.002},
-  });
-  rclcpp::Node node("test_registration", options);
-  Registration registration = make_registration(node);
+  Registration registration = method == "ndt_omp"
+    ? make_ndt_omp({1.0, 0.1, 0.01, false}, 2, max_iterations)
+    : make_small_gicp({"GICP", 20, 2.0, 1.0, 0.0005, 0.002}, 2, max_iterations);
   registration.engine->setInputTarget(make_corner());
   return registration;
 }
@@ -63,9 +46,6 @@ Cloud::Ptr shifted_scan(float offset)
 
 class RegistrationTest : public ::testing::TestWithParam<std::string>
 {
-protected:
-  static void SetUpTestSuite() { rclcpp::init(0, nullptr); }
-  static void TearDownTestSuite() { rclcpp::shutdown(); }
 };
 
 TEST_P(RegistrationTest, RecoversKnownOffset)
