@@ -3,6 +3,7 @@
 #include <Eigen/Geometry>
 
 #include <cmath>
+#include <string>
 
 namespace prior_map_localization
 {
@@ -14,7 +15,10 @@ double seconds(const builtin_interfaces::msg::Time & stamp)
   return stamp.sec + stamp.nanosec * 1e-9;
 }
 
-double radians(double deg) { return deg * M_PI / 180.0; }
+double radians(double deg)
+{
+  return deg * M_PI / 180.0;
+}
 
 Eigen::Matrix3d rotation(const geometry_msgs::msg::Quaternion & q)
 {
@@ -30,8 +34,7 @@ LioTwistRelay::LioTwistRelay(const rclcpp::NodeOptions & options)
     declare_parameter<double>("bias_time_constant_sec"),
     declare_parameter<double>("check_window_sec"),
     radians(declare_parameter<double>("check_threshold_deg")),
-    declare_parameter<double>("check_turn_ratio"),
-    declare_parameter<double>("hold_sec")}),
+    declare_parameter<double>("check_turn_ratio"), declare_parameter<double>("hold_sec")}),
   check_window_sec_(get_parameter("check_window_sec").as_double()),
   hold_sec_(get_parameter("hold_sec").as_double()),
   tf_buffer_(get_clock()),
@@ -107,8 +110,10 @@ void LioTwistRelay::on_odom(const nav_msgs::msg::Odometry & msg)
     const double t1 = stamp.seconds();
     if (const std::optional<double> gap = gyro_.add_lio(t1 - dt, t1, w.z() * dt)) {
       RCLCPP_WARN(
-        get_logger(), "LIO yaw disagrees with the IMU by %.2f deg over %.1f s; withholding LIO "
-        "for %.0f s", *gap * 180.0 / M_PI, check_window_sec_, hold_sec_);
+        get_logger(),
+        "LIO yaw disagrees with the IMU by %.2f deg over %.1f s; withholding LIO "
+        "for %.0f s",
+        *gap * 180.0 / M_PI, check_window_sec_, hold_sec_);
     }
     if (!gyro_.lio_withheld(t1)) {
       // The twist is the mean over the scan interval, so it belongs to its middle.

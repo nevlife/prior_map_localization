@@ -31,7 +31,10 @@ Packed pack(const std::vector<std::array<float, 4>> & points)
   return out;
 }
 
-ScanFilter filter() { return {1.0, 80.0, 0.01, 0.2}; }
+ScanFilter filter()
+{
+  return {1.0, 80.0, 0.01, 0.2};
+}
 
 std::vector<float> sorted_x(const Cloud & cloud)
 {
@@ -65,8 +68,7 @@ TEST(PrepareScan, DeskewsToTheScanEnd)
   ScanMotion motion;
   motion.translation.x() = 1.0f;
   motion.duration_sec = 0.1;
-  const PreparedScan out =
-    prepare_scan(scan.raw, Eigen::Affine3f::Identity(), motion, filter());
+  const PreparedScan out = prepare_scan(scan.raw, Eigen::Affine3f::Identity(), motion, filter());
   ASSERT_EQ(out.deskew, DeskewStatus::kApplied);
   const std::vector<float> xs = sorted_x(*out.cloud);
   ASSERT_EQ(xs.size(), 2u);
@@ -80,8 +82,7 @@ TEST(PrepareScan, SkipsDeskewOverALongSweep)
   ScanMotion motion;
   motion.translation.x() = 1.0f;
   motion.duration_sec = 0.5;
-  const PreparedScan out =
-    prepare_scan(scan.raw, Eigen::Affine3f::Identity(), motion, filter());
+  const PreparedScan out = prepare_scan(scan.raw, Eigen::Affine3f::Identity(), motion, filter());
   EXPECT_EQ(out.deskew, DeskewStatus::kDurationTooLarge);
   EXPECT_EQ(sorted_x(*out.cloud), (std::vector<float>{10.0f, 10.0f}));
 }

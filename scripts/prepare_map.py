@@ -11,16 +11,16 @@ import argparse
 
 import numpy as np
 
-LAYERS = ("full_corner.pcd", "full_surf.pcd")
+LAYERS = ('full_corner.pcd', 'full_surf.pcd')
 
 
 def read_pcd(path):
-    with open(path, "rb") as f:
+    with open(path, 'rb') as f:
         while True:
-            line = f.readline().decode("ascii")
-            if line.startswith("POINTS"):
+            line = f.readline().decode('ascii')
+            if line.startswith('POINTS'):
                 count = int(line.split()[1])
-            elif line.startswith("DATA"):
+            elif line.startswith('DATA'):
                 break
         data = np.fromfile(f, dtype=np.float32, count=count * 4)
     return data.reshape(count, 4)
@@ -39,28 +39,28 @@ def voxel_downsample(points, leaf):
 
 def write_pcd(path, points):
     header = (
-        "# .PCD v0.7 - Point Cloud Data file format\n"
-        "VERSION 0.7\nFIELDS x y z intensity\nSIZE 4 4 4 4\nTYPE F F F F\nCOUNT 1 1 1 1\n"
-        f"WIDTH {len(points)}\nHEIGHT 1\nVIEWPOINT 0 0 0 1 0 0 0\n"
-        f"POINTS {len(points)}\nDATA binary\n"
+        '# .PCD v0.7 - Point Cloud Data file format\n'
+        'VERSION 0.7\nFIELDS x y z intensity\nSIZE 4 4 4 4\nTYPE F F F F\nCOUNT 1 1 1 1\n'
+        f'WIDTH {len(points)}\nHEIGHT 1\nVIEWPOINT 0 0 0 1 0 0 0\n'
+        f'POINTS {len(points)}\nDATA binary\n'
     )
-    with open(path, "wb") as f:
-        f.write(header.encode("ascii"))
+    with open(path, 'wb') as f:
+        f.write(header.encode('ascii'))
         f.write(points.tobytes())
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("bundle_dir")
-    parser.add_argument("out_pcd")
-    parser.add_argument("--voxel", type=float, default=0.4, help="leaf size [m]")
+    parser.add_argument('bundle_dir')
+    parser.add_argument('out_pcd')
+    parser.add_argument('--voxel', type=float, default=0.4, help='leaf size [m]')
     args = parser.parse_args()
 
-    merged = np.concatenate([read_pcd(f"{args.bundle_dir}/{name}") for name in LAYERS])
+    merged = np.concatenate([read_pcd(f'{args.bundle_dir}/{name}') for name in LAYERS])
     out = voxel_downsample(merged, args.voxel)
-    print(f"{len(merged):,} -> {len(out):,} points (voxel {args.voxel} m)")
+    print(f'{len(merged):,} -> {len(out):,} points (voxel {args.voxel} m)')
     write_pcd(args.out_pcd, out)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

@@ -1,5 +1,5 @@
-#ifndef PRIOR_MAP_LOCALIZATION__SCAN_HPP_
-#define PRIOR_MAP_LOCALIZATION__SCAN_HPP_
+#ifndef SCAN_HPP_
+#define SCAN_HPP_
 
 #include <Eigen/Geometry>
 
@@ -76,4 +76,4 @@ const char * to_string(DeskewStatus status);
 
 }  // namespace prior_map_localization
 
-#endif  // PRIOR_MAP_LOCALIZATION__SCAN_HPP_
+#endif  // SCAN_HPP_

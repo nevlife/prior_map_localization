@@ -1,5 +1,5 @@
-#ifndef PRIOR_MAP_LOCALIZATION__CORNER_FEATURES_HPP_
-#define PRIOR_MAP_LOCALIZATION__CORNER_FEATURES_HPP_
+#ifndef CORNER_FEATURES_HPP_
+#define CORNER_FEATURES_HPP_
 
 #include <Eigen/Core>
 
@@ -33,4 +33,4 @@ std::vector<Eigen::Vector3f> extract_corners(
 
 }  // namespace prior_map_localization
 
-#endif  // PRIOR_MAP_LOCALIZATION__CORNER_FEATURES_HPP_
+#endif  // CORNER_FEATURES_HPP_

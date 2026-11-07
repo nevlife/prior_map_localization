@@ -1,5 +1,5 @@
-#ifndef PRIOR_MAP_LOCALIZATION__WHEEL_TWIST_RELAY_HPP_
-#define PRIOR_MAP_LOCALIZATION__WHEEL_TWIST_RELAY_HPP_
+#ifndef WHEEL_TWIST_RELAY_HPP_
+#define WHEEL_TWIST_RELAY_HPP_
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -29,4 +29,4 @@ private:
 
 }  // namespace prior_map_localization
 
-#endif  // PRIOR_MAP_LOCALIZATION__WHEEL_TWIST_RELAY_HPP_
+#endif  // WHEEL_TWIST_RELAY_HPP_

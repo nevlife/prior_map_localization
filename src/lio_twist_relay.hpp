@@ -1,8 +1,9 @@
-#ifndef PRIOR_MAP_LOCALIZATION__LIO_TWIST_RELAY_HPP_
-#define PRIOR_MAP_LOCALIZATION__LIO_TWIST_RELAY_HPP_
+#ifndef LIO_TWIST_RELAY_HPP_
+#define LIO_TWIST_RELAY_HPP_
 
 #include "gyro_bias.hpp"
 
+#include <Eigen/Core>
 #include <rclcpp/rclcpp.hpp>
 
 #include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
@@ -11,8 +12,6 @@
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
-
-#include <Eigen/Core>
 
 #include <array>
 #include <optional>
@@ -64,4 +63,4 @@ private:
 
 }  // namespace prior_map_localization
 
-#endif  // PRIOR_MAP_LOCALIZATION__LIO_TWIST_RELAY_HPP_
+#endif  // LIO_TWIST_RELAY_HPP_

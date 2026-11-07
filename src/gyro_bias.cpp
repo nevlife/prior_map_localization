@@ -12,7 +12,9 @@ constexpr double kImuHistorySec = 10.0;
 
 }  // namespace
 
-GyroBias::GyroBias(const Params & params) : params_(params) {}
+GyroBias::GyroBias(const Params & params) : params_(params)
+{
+}
 
 void GyroBias::add_imu(double stamp, double yaw_rate)
 {

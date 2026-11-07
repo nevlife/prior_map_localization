@@ -1,5 +1,5 @@
-#ifndef PRIOR_MAP_LOCALIZATION__GPS_COV_FLOOR_HPP_
-#define PRIOR_MAP_LOCALIZATION__GPS_COV_FLOOR_HPP_
+#ifndef GPS_COV_FLOOR_HPP_
+#define GPS_COV_FLOOR_HPP_
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -26,4 +26,4 @@ private:
 
 }  // namespace prior_map_localization
 
-#endif  // PRIOR_MAP_LOCALIZATION__GPS_COV_FLOOR_HPP_
+#endif  // GPS_COV_FLOOR_HPP_

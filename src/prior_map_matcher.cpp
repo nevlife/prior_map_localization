@@ -9,7 +9,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <memory>
 #include <stdexcept>
+#include <string>
 
 namespace prior_map_localization
 {

@@ -1,11 +1,11 @@
-#ifndef PRIOR_MAP_LOCALIZATION__REGISTRATION_HPP_
-#define PRIOR_MAP_LOCALIZATION__REGISTRATION_HPP_
+#ifndef REGISTRATION_HPP_
+#define REGISTRATION_HPP_
 
 #include "scan.hpp"
 
-#include <pcl/registration/registration.h>
-
 #include <Eigen/Core>
+
+#include <pcl/registration/registration.h>
 
 #include <functional>
 #include <memory>
@@ -54,8 +54,9 @@ Registration make_ndt_omp(const NdtOmpParams & params, int threads, int max_iter
 
 Registration make_small_gicp(const SmallGicpParams & params, int threads, int max_iterations);
 
-Alignment align(Registration & registration, const Cloud::Ptr & cloud, const Eigen::Matrix4f & seed);
+Alignment align(
+  Registration & registration, const Cloud::Ptr & cloud, const Eigen::Matrix4f & seed);
 
 }  // namespace prior_map_localization
 
-#endif  // PRIOR_MAP_LOCALIZATION__REGISTRATION_HPP_
+#endif  // REGISTRATION_HPP_

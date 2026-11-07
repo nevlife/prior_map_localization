@@ -4,6 +4,7 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <vector>
 
 namespace prior_map_localization
 {
@@ -31,8 +32,8 @@ std::vector<Eigen::Vector3f> extract_corners(
 {
   const int rows = params.n_scan;
   const int cols = params.horizon_scan;
-  std::vector<float> range_image(static_cast<std::size_t>(rows) * cols,
-    std::numeric_limits<float>::max());
+  std::vector<float> range_image(
+    static_cast<std::size_t>(rows) * cols, std::numeric_limits<float>::max());
   std::vector<int> point_of_cell(range_image.size(), -1);
   const double column_resolution_deg = 360.0 / cols;
   for (std::size_t i = 0; i < points.size(); ++i) {
@@ -45,8 +46,8 @@ std::vector<Eigen::Vector3f> extract_corners(
       continue;
     }
     const double horizon_deg = std::atan2(p.x, p.y) * 180.0 / M_PI;
-    int column = -static_cast<int>(std::round((horizon_deg - 90.0) / column_resolution_deg)) +
-      cols / 2;
+    int column =
+      -static_cast<int>(std::round((horizon_deg - 90.0) / column_resolution_deg)) + cols / 2;
     if (column >= cols) {
       column -= cols;
     }
@@ -116,8 +117,9 @@ std::vector<Eigen::Vector3f> extract_corners(
       if (sp >= ep || sp < 0 || ep >= n) {
         continue;
       }
-      std::sort(order.begin() + sp, order.begin() + ep,
-        [&curvature](int a, int b) { return curvature[a] < curvature[b]; });
+      std::sort(order.begin() + sp, order.begin() + ep, [&curvature](int a, int b) {
+        return curvature[a] < curvature[b];
+      });
       int taken = 0;
       for (int k = ep; k >= sp; --k) {
         const int i = order[k];

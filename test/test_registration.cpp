@@ -27,9 +27,9 @@ Cloud::Ptr make_corner()
 
 Registration make(const std::string & method, int max_iterations)
 {
-  Registration registration = method == "ndt_omp"
-    ? make_ndt_omp({1.0, 0.1, 0.01, false}, 2, max_iterations)
-    : make_small_gicp({"GICP", 20, 2.0, 1.0, 0.0005, 0.002}, 2, max_iterations);
+  Registration registration =
+    method == "ndt_omp" ? make_ndt_omp({1.0, 0.1, 0.01, false}, 2, max_iterations)
+                        : make_small_gicp({"GICP", 20, 2.0, 1.0, 0.0005, 0.002}, 2, max_iterations);
   registration.engine->setInputTarget(make_corner());
   return registration;
 }

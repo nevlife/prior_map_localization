@@ -4,13 +4,13 @@
 
 ## 구성
 
-| 위치 | 내용 |
-| --- | --- |
-| `thirdparty/ndt_omp` | 서브모듈(nevlife/ndt_omp `jazzy`, koide3 원본 + line search 스위치). 이 패키지 CMake가 정적 라이브러리로 빌드한다 |
-| `small_gicp` (작업공간의 nevlife 포크) | 두 번째 정합 엔진 |
-| `src/` | 노드. 직접 작성 코드 규칙을 따른다 |
-| `config/prior_map_matcher.param.yaml` | 노드 파라미터 전부. `map_pcd`, `transport`만 launch가 넘긴다 |
-| `launch/prior_map_matcher.launch.py` | 노드를 컨테이너에 올린다. `container`를 주면 그 컨테이너에, 없으면 자기 `capa_component_container`에 올린다. `localization.launch.py`가 include한다 |
+| 위치                                   | 내용                                                                                                                                                |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `thirdparty/ndt_omp`                   | 서브모듈(nevlife/ndt_omp `jazzy`, koide3 원본 + line search 스위치). 이 패키지 CMake가 정적 라이브러리로 빌드한다                                   |
+| `small_gicp` (작업공간의 nevlife 포크) | 두 번째 정합 엔진                                                                                                                                   |
+| `src/`                                 | 노드. 직접 작성 코드 규칙을 따른다                                                                                                                  |
+| `config/prior_map_matcher.param.yaml`  | 노드 파라미터 전부. `map_pcd`, `transport`만 launch가 넘긴다                                                                                        |
+| `launch/prior_map_matcher.launch.py`   | 노드를 컨테이너에 올린다. `container`를 주면 그 컨테이너에, 없으면 자기 `capa_component_container`에 올린다. `localization.launch.py`가 include한다 |
 
 ndt_omp를 colcon 패키지로 두지 않는다. 원본이 export하는 타깃이 QHULL, VTK 등 PCL 전체를 끌고 오고, `ndt_omp_ros2`와 같은 `include/pclomp`를 설치한다.
 
@@ -21,24 +21,24 @@ ndt_omp를 colcon 패키지로 두지 않는다. 원본이 export하는 타깃�
 ## 데이터 흐름
 
 ```text
-velodyne_transform_node ─(dds|flux, lidar_transport)─> /velodyne_points ─┬─> fast_lio
-                                                                         └─> prior_map_matcher
-/odometry/local (ekf_odom) ──────────────────────────────────────────────────> prior_map_matcher
-/initialpose (bbs_initialpose) ──────────────────────────────────────────────> prior_map_matcher
+velodyne_transform_node -(dds|flux, lidar_transport)-> /velodyne_points -+-> fast_lio
+                                                                         +-> prior_map_matcher
+/odometry/local (ekf_odom) --------------------------------------------------> prior_map_matcher
+/initialpose (bbs_initialpose) ----------------------------------------------> prior_map_matcher
 
-prior_map_matcher ─> /pcl_pose ─> ekf_map
-              ─> /reinitialization_requested ─> bbs_initialpose
-              ─> /alignment_status
+prior_map_matcher -> /pcl_pose -> ekf_map
+              -> /reinitialization_requested -> bbs_initialpose
+              -> /alignment_status
 ```
 
-| 노드 이름 | 토픽 | 타입 |
-| --- | --- | --- |
-| `~/input/points` | `/velodyne_points` | `sensor_msgs/PointCloud2` (DDS 또는 flux) |
-| `~/input/odom` | `/odometry/local` | `nav_msgs/Odometry` |
-| `~/input/initialpose` | `/initialpose` | `geometry_msgs/PoseWithCovarianceStamped` |
-| `~/output/pose` | `/pcl_pose` | `geometry_msgs/PoseWithCovarianceStamped` |
-| `~/output/reinitialization_requested` | `/reinitialization_requested` | `std_msgs/Bool` |
-| `~/debug/alignment_status` | `/alignment_status` | `diagnostic_msgs/DiagnosticArray` |
+| 노드 이름                             | 토픽                          | 타입                                      |
+| ------------------------------------- | ----------------------------- | ----------------------------------------- |
+| `~/input/points`                      | `/velodyne_points`            | `sensor_msgs/PointCloud2` (DDS 또는 flux) |
+| `~/input/odom`                        | `/odometry/local`             | `nav_msgs/Odometry`                       |
+| `~/input/initialpose`                 | `/initialpose`                | `geometry_msgs/PoseWithCovarianceStamped` |
+| `~/output/pose`                       | `/pcl_pose`                   | `geometry_msgs/PoseWithCovarianceStamped` |
+| `~/output/reinitialization_requested` | `/reinitialization_requested` | `std_msgs/Bool`                           |
+| `~/debug/alignment_status`            | `/alignment_status`           | `diagnostic_msgs/DiagnosticArray`         |
 
 - 스캔은 FAST-LIO와 같은 `/velodyne_points`를 받는다. flux에서는 두 노드가 같은 공유메모리 프레임을 복사 없이 읽는다. stamp는 스캔 시작이고 점 시간은 [0, 주기)다(드라이버 `timestamp_first_packet`, bring_up `lidar.param.yaml`).
 - 트위스트는 `ekf_odom`의 `Odometry`를 바로 받는다.
@@ -72,19 +72,19 @@ on_points
 - `T(f) = [slerp(I, q_M, f) | f * t_M]`로 두고, 점마다 `p' = T(d/D)^-1 * T((t_i - t_min)/D) * p`를 적용한다.
 - 건너뛰는 경우:
 
-  | 조건 | 상태 |
-  | --- | --- |
+  | 조건                               | 상태                 |
+  | ---------------------------------- | -------------------- |
   | `d > filter.max_scan_duration_sec` | `duration_too_large` |
-  | 연속 두 번 accept된 적이 없음 | `no_motion` |
-  | `d/D`가 (0, 1.5] 밖 | `interval_mismatch` |
+  | 연속 두 번 accept된 적이 없음      | `no_motion`          |
+  | `d/D`가 (0, 1.5] 밖                | `interval_mismatch`  |
 
 ### 예측과 상태
 
-| 사건 | 예측 포즈 | 움직임 `M` |
-| --- | --- | --- |
-| 초기 포즈 | 받은 포즈 | 지운다 |
-| accept | 정합 결과 | 직전 스캔도 accept였을 때만 갱신 |
-| reject | 그 스캔의 시드 | 유지 |
+| 사건      | 예측 포즈      | 움직임 `M`                       |
+| --------- | -------------- | -------------------------------- |
+| 초기 포즈 | 받은 포즈      | 지운다                           |
+| accept    | 정합 결과      | 직전 스캔도 accept였을 때만 갱신 |
+| reject    | 그 스캔의 시드 | 유지                             |
 
 - 트위스트는 스캔 끝 시각 이전의 가장 최근 값이다. body 좌표로 보고 `t += R v dt`, `R = R * Rx(wx dt) Ry(wy dt) Rz(wz dt)`로 적용한다.
 - 공분산은 accept 때만 채운다. 표준편차는 `clamp(floor + per_fitness * fitness, floor, max)`이고 `[xy, z, roll/pitch, yaw]` 순서의 세 배열로 준다. 비대각은 0이다.
@@ -92,23 +92,23 @@ on_points
 
 ## lidar_localization_ros2와 다른 점
 
-| 항목 | lidar_localization_ros2 | prior_map_matcher | 이유 |
-| --- | --- | --- | --- |
-| NDT 라이브러리 | `ndt_omp_ros2` (line search 꺼짐, 비결정적 합산) | koide3 `ndt_omp` + line search 스위치(끔) | 원본 수정 반영, 결정적 합산 |
-| 입력 | `/velodyne_points` (DDS) | `/velodyne_points` (DDS/flux) | FAST-LIO와 공유 |
-| 점 읽기 | `fromROSMsg` 후 변환 | 버퍼에서 바로 읽음 | 변환 단계 제거 |
-| deskew 움직임 | reject 뒤에도 accept 간 시간으로 갱신 | 연속 accept일 때만 갱신 | reject 연속 뒤 과소 보정 방지 |
-| 재초기화 판정 | 점수식과 latch | 마지막 accept 이후 시간 | 실제로 걸리는 조건(30 s, 200회)과 같음 |
-| executor | 3 스레드 + mutex | 단일 스레드 | 스캔 주기 대비 일이 짧다 |
-| 파라미터 | 약 200개 | 20개 | |
+| 항목           | lidar_localization_ros2                          | prior_map_matcher                         | 이유                                   |
+| -------------- | ------------------------------------------------ | ----------------------------------------- | -------------------------------------- |
+| NDT 라이브러리 | `ndt_omp_ros2` (line search 꺼짐, 비결정적 합산) | koide3 `ndt_omp` + line search 스위치(끔) | 원본 수정 반영, 결정적 합산            |
+| 입력           | `/velodyne_points` (DDS)                         | `/velodyne_points` (DDS/flux)             | FAST-LIO와 공유                        |
+| 점 읽기        | `fromROSMsg` 후 변환                             | 버퍼에서 바로 읽음                        | 변환 단계 제거                         |
+| deskew 움직임  | reject 뒤에도 accept 간 시간으로 갱신            | 연속 accept일 때만 갱신                   | reject 연속 뒤 과소 보정 방지          |
+| 재초기화 판정  | 점수식과 latch                                   | 마지막 accept 이후 시간                   | 실제로 걸리는 조건(30 s, 200회)과 같음 |
+| executor       | 3 스레드 + mutex                                 | 단일 스레드                               | 스캔 주기 대비 일이 짧다               |
+| 파라미터       | 약 200개                                         | 20개                                      |                                        |
 
 ## 정합 엔진
 
 `pcl::Registration` 하나로 둘을 다룬다. `registration.method`로 고르고, 그 엔진의 파라미터만 선언한다.
 
-| method | 엔진 | 파라미터 |
-| --- | --- | --- |
-| `ndt_omp` | `pclomp::NormalDistributionsTransform` | `resolution`, `step_size`, `transformation_epsilon`, `line_search` |
+| method       | 엔진                                                | 파라미터                                                                                                      |
+| ------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `ndt_omp`    | `pclomp::NormalDistributionsTransform`              | `resolution`, `step_size`, `transformation_epsilon`, `line_search`                                            |
 | `small_gicp` | `small_gicp::RegistrationPCL` (`type`: GICP, VGICP) | `num_neighbors`, `max_correspondence_distance`, `voxel_resolution`, `translation_epsilon`, `rotation_epsilon` |
 
 fitness는 두 엔진 모두 PCL `getFitnessScore()`라 같은 기준으로 판정한다.
@@ -126,13 +126,13 @@ ros2 launch prior_map_localization localization.launch.py [lio:=true]
 
 스캔 하나로 GPS 원 안의 x, y와 yaw 전체를 탐색해 `/initialpose`를 낸다. 차가 움직이지 않아도 된다.
 
-| 단계 | 내용 |
-| --- | --- |
-| 지도 | 번들의 `full_corner.pcd`를 xy로 투영해 0.5 m 점유 격자로 만든다 |
-| 스캔 | LIO-SAM featureExtraction과 같은 기준으로 모서리점을 뽑는다(`corner_features.cpp`). deskew와 roll/pitch 보정은 하지 않는다 |
-| 탐색 | `thirdparty/bbs`(rsasaki0109/lidar_localization_ros2의 BBS_2D, BSD-2)에 탐색 창을 더해 쓴다. 창은 GPS 중심, 반경 `clamp(3σ + 3 m/s × GPS 나이, 10, 30)` m다 |
-| 확정 | 점수가 `min_score` 이상인 결과의 map->odom이 4 s 안에 3번 1 m, 5도 안으로 맞으면 낸다 |
-| 높이 | NDT 지도에서 반경 2 m 점의 하위 5% 높이를 쓴다 |
+| 단계 | 내용                                                                                                                                                                      |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 지도 | 번들의 `full_corner.pcd`를 xy로 투영해 0.5 m 점유 격자로 만든다                                                                                                           |
+| 스캔 | LIO-SAM featureExtraction과 같은 기준으로 모서리점을 뽑는다(`corner_features.cpp`). deskew와 roll/pitch 보정은 하지 않는다                                                |
+| 탐색 | `thirdparty/bbs`(rsasaki0109/lidar_localization_ros2의 BBS_2D, BSD-2)에 탐색 창을 더해 쓴다. 창은 GPS 중심, 반경 `clamp(3 * GPS 표준편차 + 3 m/s * GPS 나이, 10, 30)` m다 |
+| 확정 | 점수가 `min_score` 이상인 결과의 map->odom이 4 s 안에 3번 1 m, 5도 안으로 맞으면 낸다                                                                                     |
+| 높이 | NDT 지도에서 반경 2 m 점의 하위 5% 높이를 쓴다                                                                                                                            |
 
 `/reinitialization_requested`가 참이면 다시 탐색한다. 파라미터는 loam_fgo_localization의 값에서 시작했고 아직 맞추지 않았다.
 

@@ -1,20 +1,20 @@
-#ifndef PRIOR_MAP_LOCALIZATION__BBS_INITIALPOSE_HPP_
-#define PRIOR_MAP_LOCALIZATION__BBS_INITIALPOSE_HPP_
+#ifndef BBS_INITIALPOSE_HPP_
+#define BBS_INITIALPOSE_HPP_
 
 #include "bbs/bbs_branch_and_bound.hpp"
 #include "corner_features.hpp"
 
+#include <Eigen/Geometry>
 #include <flux/subscription.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_msgs/msg/bool.hpp>
 
-#include <Eigen/Geometry>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
 
 #include <array>
 #include <cstdint>
@@ -42,7 +42,6 @@ public:
   explicit BbsInitialPose(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
-
   struct Vote
   {
     Pose2 map_from_odom;
@@ -51,7 +50,7 @@ private:
 
   void load_maps(const std::string & corner_pcd, const std::string & map_pcd);
   void subscribe_points(const std::string & transport);
-  template<typename Field>
+  template <typename Field>
   void on_points(
     const std::vector<Field> & fields, const std::uint8_t * data, std::size_t count,
     std::uint32_t step, double stamp, const std::string & frame_id);
@@ -109,4 +108,4 @@ private:
 
 }  // namespace prior_map_localization
 
-#endif  // PRIOR_MAP_LOCALIZATION__BBS_INITIALPOSE_HPP_
+#endif  // BBS_INITIALPOSE_HPP_

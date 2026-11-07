@@ -11,13 +11,16 @@ namespace
 {
 
 // One ring, one beam per degree.
-CornerParams params() { return {1, 360, 1.0, 100.0, 1.0}; }
+CornerParams params()
+{
+  return {1, 360, 1.0, 100.0, 1.0};
+}
 
 RingPoint at(double deg, double range)
 {
   const double rad = deg * M_PI / 180.0;
-  return {static_cast<float>(range * std::cos(rad)), static_cast<float>(range * std::sin(rad)),
-    0.0f, 0};
+  return {
+    static_cast<float>(range * std::cos(rad)), static_cast<float>(range * std::sin(rad)), 0.0f, 0};
 }
 
 TEST(ExtractCorners, NoneOnAConstantRange)

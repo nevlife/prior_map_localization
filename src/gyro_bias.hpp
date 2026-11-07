@@ -1,5 +1,5 @@
-#ifndef PRIOR_MAP_LOCALIZATION__GYRO_BIAS_HPP_
-#define PRIOR_MAP_LOCALIZATION__GYRO_BIAS_HPP_
+#ifndef GYRO_BIAS_HPP_
+#define GYRO_BIAS_HPP_
 
 #include <deque>
 #include <limits>
@@ -58,4 +58,4 @@ private:
 
 }  // namespace prior_map_localization
 
-#endif  // PRIOR_MAP_LOCALIZATION__GYRO_BIAS_HPP_
+#endif  // GYRO_BIAS_HPP_

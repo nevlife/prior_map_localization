@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <limits>
+#include <memory>
 
 namespace prior_map_localization
 {

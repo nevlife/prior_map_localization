@@ -1,8 +1,8 @@
 #include "bbs_initialpose.hpp"
 
-#include "sensor_msgs/flux/point_cloud2.hpp"
-
 #include <tf2_eigen/tf2_eigen.hpp>
+
+#include "sensor_msgs/flux/point_cloud2.hpp"
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstring>
 #include <deque>
+#include <memory>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -26,7 +27,6 @@ namespace
 
 using FluxCloud = sensor_msgs::flux_msg::PointCloud2;
 constexpr auto kThrottleMs = 5000;
-
 
 double wrap(double a)
 {
@@ -65,15 +65,23 @@ struct RingFields
   std::uint32_t ring;
 };
 
-template<typename Field>
+template <typename Field>
 std::optional<RingFields> ring_fields(const std::vector<Field> & fields)
 {
   std::optional<std::uint32_t> x, y, z, ring;
   for (const auto & [name, offset] : fields) {
-    if (name == "x") {x = offset;}
-    if (name == "y") {y = offset;}
-    if (name == "z") {z = offset;}
-    if (name == "ring") {ring = offset;}
+    if (name == "x") {
+      x = offset;
+    }
+    if (name == "y") {
+      y = offset;
+    }
+    if (name == "z") {
+      z = offset;
+    }
+    if (name == "ring") {
+      ring = offset;
+    }
   }
   if (!x || !y || !z || !ring) {
     return std::nullopt;
@@ -118,8 +126,7 @@ BbsInitialPose::BbsInitialPose(const rclcpp::NodeOptions & options)
   corners_{
     static_cast<int>(declare_parameter<int>("corners.n_scan")),
     static_cast<int>(declare_parameter<int>("corners.horizon_scan")),
-    declare_parameter<double>("corners.min_range"),
-    declare_parameter<double>("corners.max_range"),
+    declare_parameter<double>("corners.min_range"), declare_parameter<double>("corners.max_range"),
     declare_parameter<double>("corners.edge_threshold")},
   resolution_(declare_parameter<double>("search.resolution")),
   yaw_resolution_(declare_parameter<double>("search.yaw_resolution_deg") * M_PI / 180.0),
@@ -145,17 +152,17 @@ BbsInitialPose::BbsInitialPose(const rclcpp::NodeOptions & options)
 {
   load_maps(
     declare_parameter<std::string>("corner_pcd"), declare_parameter<std::string>("map_pcd"));
-  initialpose_pub_ = create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
-    "~/output/initialpose", 1);
+  initialpose_pub_ =
+    create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("~/output/initialpose", 1);
   set_pose_pub_ =
     create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("~/output/set_pose", 1);
   gps_sub_ = create_subscription<nav_msgs::msg::Odometry>(
     "~/input/gps", rclcpp::SensorDataQoS(),
-    [this](const nav_msgs::msg::Odometry & msg) {gps_ = msg;});
+    [this](const nav_msgs::msg::Odometry & msg) { gps_ = msg; });
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
     "~/input/odom", rclcpp::SensorDataQoS(), [this](const nav_msgs::msg::Odometry & msg) {
-      odom_ = Pose2{msg.pose.pose.position.x, msg.pose.pose.position.y,
-        yaw_of(msg.pose.pose.orientation)};
+      odom_ = Pose2{
+        msg.pose.pose.position.x, msg.pose.pose.position.y, yaw_of(msg.pose.pose.orientation)};
     });
   reinit_sub_ = create_subscription<std_msgs::msg::Bool>(
     "~/input/reinitialization_requested", 10, [this](const std_msgs::msg::Bool & msg) {
@@ -218,8 +225,7 @@ void BbsInitialPose::subscribe_points(const std::string & transport)
   }
   // Depth 1: a search outlasts several scans, and only the newest is worth searching.
   dds_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    "~/input/points", rclcpp::QoS(1).reliable(),
-    [this](const sensor_msgs::msg::PointCloud2 & msg) {
+    "~/input/points", rclcpp::QoS(1).reliable(), [this](const sensor_msgs::msg::PointCloud2 & msg) {
       std::vector<std::pair<std::string, std::uint32_t>> fields;
       for (const auto & f : msg.fields) {
         fields.emplace_back(f.name, f.offset);
@@ -230,7 +236,7 @@ void BbsInitialPose::subscribe_points(const std::string & transport)
     });
 }
 
-template<typename Field>
+template <typename Field>
 void BbsInitialPose::on_points(
   const std::vector<Field> & fields, const std::uint8_t * data, std::size_t count,
   std::uint32_t step, double stamp, const std::string & frame_id)
@@ -251,11 +257,10 @@ void BbsInitialPose::on_points(
   const std::vector<std::array<double, 2>> scan =
     scan_xy(extract_corners(read_points(data, count, step, *f), corners_), *sensor);
 
-  const double gps_sigma =
-    std::sqrt(std::max(gps_->pose.covariance[0], gps_->pose.covariance[7]));
+  const double gps_sigma = std::sqrt(std::max(gps_->pose.covariance[0], gps_->pose.covariance[7]));
   const double gps_age = std::abs(stamp - stamp_sec(gps_->header.stamp));
-  const double radius = std::clamp(
-    radius_sigma_scale_ * gps_sigma + speed_margin_ * gps_age, min_radius_, max_radius_);
+  const double radius =
+    std::clamp(radius_sigma_scale_ * gps_sigma + speed_margin_ * gps_age, min_radius_, max_radius_);
   const double gx = gps_->pose.pose.position.x;
   const double gy = gps_->pose.pose.position.y;
 
@@ -326,10 +331,10 @@ bool BbsInitialPose::vote(const Pose2 & map_from_odom, double stamp)
   votes_.push_back({map_from_odom, stamp});
   int agree = 0;
   for (const Vote & v : votes_) {
-    if (std::hypot(v.map_from_odom.x - map_from_odom.x, v.map_from_odom.y - map_from_odom.y) <=
-      vote_xy_tolerance_ &&
-      std::abs(wrap(v.map_from_odom.yaw - map_from_odom.yaw)) <= vote_yaw_tolerance_)
-    {
+    if (
+      std::hypot(v.map_from_odom.x - map_from_odom.x, v.map_from_odom.y - map_from_odom.y) <=
+        vote_xy_tolerance_ &&
+      std::abs(wrap(v.map_from_odom.yaw - map_from_odom.yaw)) <= vote_yaw_tolerance_) {
       ++agree;
     }
   }

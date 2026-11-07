@@ -1,5 +1,5 @@
-#ifndef PRIOR_MAP_LOCALIZATION__PRIOR_MAP_MATCHER_HPP_
-#define PRIOR_MAP_LOCALIZATION__PRIOR_MAP_MATCHER_HPP_
+#ifndef PRIOR_MAP_MATCHER_HPP_
+#define PRIOR_MAP_MATCHER_HPP_
 
 #include "registration.hpp"
 #include "scan.hpp"
@@ -93,4 +93,4 @@ private:
 
 }  // namespace prior_map_localization
 
-#endif  // PRIOR_MAP_LOCALIZATION__PRIOR_MAP_MATCHER_HPP_
+#endif  // PRIOR_MAP_MATCHER_HPP_
