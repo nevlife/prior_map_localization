@@ -1,5 +1,6 @@
 # The prior map: ndt_map_0p4.pcd from scripts/prepare_map.py and the bundle's corner layer.
+# Relative paths are taken from the workspace's maps/ directory (copied there by hand, not in git).
 /**:
   ros__parameters:
-    map_pcd: /home/nev/VNR_devel/SCV/maps/d2_20260813_v2/ndt_map_0p4.pcd
-    corner_pcd: /home/nev/VNR_devel/SCV/maps/d2_20260813_v2/full_corner.pcd
+    map_pcd: d2_20260813_v2/ndt_map_0p4.pcd
+    corner_pcd: d2_20260813_v2/full_corner.pcd
