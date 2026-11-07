@@ -3,7 +3,8 @@
 
 // From rsasaki0109/lidar_localization_ros2 (BSD-2-Clause, see LICENSE here),
 // include/lidar_localization/bbs_branch_and_bound.hpp at cf569f5.
-// Changed: namespace, and a translation window that bounds the searched cells.
+// Changed: namespace, a translation window that bounds the searched cells, and the upper
+// bound at the low map edge (gather_hits).
 //
 // Pure C++ branch-and-bound (BBS_2D) global-localization search, a port of
 // branch_and_bound_candidates in the upstream Python tool. Pure C++/STL.
@@ -194,8 +195,14 @@ inline int gather_hits(
   const int base_x = tx_cell >> level;
   int hit = 0;
   for (const auto & o : offsets) {
-    const int iy = o.qy + base_y;
-    const int ix = o.qx + base_x;
+    int iy = o.qy + base_y;
+    int ix = o.qx + base_x;
+    // Above level 0 a point of the block falls in cell q or q + 1. At q = -1 that is cell 0,
+    // which the dilated cell 0 covers; skipping it made the bound too low at the map edge.
+    if (level > 0) {
+      iy = iy == -1 ? 0 : iy;
+      ix = ix == -1 ? 0 : ix;
+    }
     if (iy < 0 || ix < 0 || iy >= grid.height || ix >= grid.width) continue;
     if (grid.at(iy, ix)) hit += o.count;
   }
