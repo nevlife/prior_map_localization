@@ -1,10 +1,14 @@
 #include "wheel_twist_relay.hpp"
 
+#include <string>
+
 namespace prior_map_localization
 {
 
 WheelTwistRelay::WheelTwistRelay(const rclcpp::NodeOptions & options)
-: Node("wheel_twist_relay", options), scale_(declare_parameter<double>("wheel_scale"))
+: Node("wheel_twist_relay", options),
+  twist_frame_(declare_parameter<std::string>("twist_frame")),
+  scale_(declare_parameter<double>("wheel_scale"))
 {
   const double vx_sigma = declare_parameter<double>("vx_sigma");
   const double vy_sigma = declare_parameter<double>("vy_sigma");
@@ -24,7 +28,7 @@ void WheelTwistRelay::on_speed(const std_msgs::msg::Float64 & msg)
 {
   geometry_msgs::msg::TwistWithCovarianceStamped out;
   out.header.stamp = now();
-  out.header.frame_id = "rear_axle";
+  out.header.frame_id = twist_frame_;
   out.twist.twist.linear.x = msg.data * scale_;
   out.twist.covariance = covariance_;
   pub_->publish(out);

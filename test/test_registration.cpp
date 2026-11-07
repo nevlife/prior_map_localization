@@ -78,7 +78,37 @@ TEST_P(RegistrationTest, EmptyScanIsNotConvergence)
   EXPECT_TRUE(a.pose.isApprox(seed));
 }
 
+// The warm-up align must leave the engine ready to match a real scan against the same target.
+TEST_P(RegistrationTest, MatchesAfterWarmup)
+{
+  Registration r = make(GetParam(), 35);
+  set_target(r, make_corner());
+  const Alignment a = align(r, shifted_scan(0.5f), Eigen::Matrix4f::Identity());
+  ASSERT_TRUE(a.converged);
+  EXPECT_NEAR(a.pose(0, 3), 0.5f, 0.05f);
+}
+
 INSTANTIATE_TEST_SUITE_P(Methods, RegistrationTest, ::testing::Values("ndt_omp", "small_gicp"));
+
+TEST(WarmupProbe, TakesEveryHundredthPoint)
+{
+  Cloud map;
+  for (int i = 0; i < 1050; ++i) {
+    map.push_back(Point(static_cast<float>(i), 0.0f, 0.0f));
+  }
+  const Cloud::Ptr probe = warmup_probe(map);
+  ASSERT_EQ(probe->size(), 105u);
+  EXPECT_EQ((*probe)[1].x, 10.0f);
+}
+
+TEST(WarmupProbe, KeepsEveryPointOfASmallMap)
+{
+  Cloud map;
+  for (int i = 0; i < 7; ++i) {
+    map.push_back(Point(static_cast<float>(i), 0.0f, 0.0f));
+  }
+  EXPECT_EQ(warmup_probe(map)->size(), 7u);
+}
 
 }  // namespace
 }  // namespace prior_map_localization

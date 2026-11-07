@@ -1,6 +1,7 @@
 #ifndef PRIOR_MAP_MATCHER_HPP_
 #define PRIOR_MAP_MATCHER_HPP_
 
+#include "pose_tracker.hpp"
 #include "registration.hpp"
 #include "scan.hpp"
 
@@ -16,7 +17,6 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
-#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
@@ -31,13 +31,6 @@ public:
   explicit PriorMapMatcher(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
-  struct TwistSample
-  {
-    double stamp_sec;
-    Eigen::Vector3f linear;
-    Eigen::Vector3f angular;
-  };
-
   Registration make_registration();
   void load_map();
   void subscribe_points(const std::string & transport);
@@ -47,8 +40,7 @@ private:
   void on_odom(const nav_msgs::msg::Odometry & msg);
   void on_initial_pose(const geometry_msgs::msg::PoseWithCovarianceStamped & msg);
 
-  Eigen::Matrix4f predict(double stamp_sec, double dt_sec) const;
-  void accept(const Eigen::Matrix4f & pose, double stamp_sec, double fitness);
+  void publish_pose(const Eigen::Matrix4f & pose, double stamp_sec, double fitness);
   std::optional<Eigen::Affine3f> base_from_sensor(const std::string & frame_id);
   void publish_status(
     const PreparedScan & scan, const Alignment & result, const Eigen::Matrix4f & seed,
@@ -60,22 +52,11 @@ private:
   std::string base_frame_;
   ScanFilter filter_;
   double fitness_threshold_;
-  double max_prediction_dt_sec_;
   double reinitialization_gap_sec_;
-  // [xy, z, roll and pitch, yaw] standard deviations: floor + per_fitness * fitness, capped.
-  std::vector<double> std_floor_;
-  std::vector<double> std_per_fitness_;
-  std::vector<double> std_max_;
+  PoseStd pose_std_;
+  PoseTracker tracker_;
 
   std::optional<double> initial_pose_stamp_sec_;
-  Eigen::Matrix4f predicted_pose_ = Eigen::Matrix4f::Identity();
-  double predicted_stamp_sec_ = 0.0;
-  Eigen::Matrix4f accepted_pose_ = Eigen::Matrix4f::Identity();
-  double accepted_stamp_sec_ = 0.0;
-  bool last_scan_accepted_ = false;
-  std::optional<ScanMotion> motion_;
-  int consecutive_rejects_ = 0;
-  std::deque<TwistSample> twists_;
   std::optional<Eigen::Affine3f> base_from_sensor_;
   bool map_loaded_ = false;
 

@@ -4,13 +4,13 @@
 
 ## 구성
 
-| 위치                                   | 내용                                                                                                                                                |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `thirdparty/ndt_omp`                   | 서브모듈(nevlife/ndt_omp `jazzy`, koide3 원본 + line search 스위치). 이 패키지 CMake가 정적 라이브러리로 빌드한다                                   |
-| `small_gicp` (작업공간의 nevlife 포크) | 두 번째 정합 엔진                                                                                                                                   |
-| `src/`                                 | 노드. 직접 작성 코드 규칙을 따른다                                                                                                                  |
-| `config/prior_map_matcher.param.yaml`  | 노드 파라미터 전부. `map_pcd`, `transport`만 launch가 넘긴다                                                                                        |
-| `launch/prior_map_matcher.launch.py`   | 노드를 컨테이너에 올린다. `container`를 주면 그 컨테이너에, 없으면 자기 `capa_component_container`에 올린다. `localization.launch.py`가 include한다 |
+| 위치                                   | 내용                                                                                                                                                                                               |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `thirdparty/ndt_omp`                   | 서브모듈(nevlife/ndt_omp `jazzy`, koide3 원본 + line search 스위치). 이 패키지 CMake가 정적 라이브러리로 빌드한다                                                                                  |
+| `small_gicp` (작업공간의 nevlife 포크) | 두 번째 정합 엔진                                                                                                                                                                                  |
+| `src/`                                 | 노드와 ROS를 쓰지 않는 계산 모듈(`scan`, `registration`, `pose_tracker`, `bbs_search`, `corner_features`, `gyro_bias`, `lio_twist`). 모듈마다 `test/`에 gtest가 있다. 직접 작성 코드 규칙을 따른다 |
+| `config/prior_map_matcher.param.yaml`  | 노드 파라미터 전부. `map_pcd`, `transport`만 launch가 넘긴다                                                                                                                                       |
+| `launch/prior_map_matcher.launch.py`   | 노드를 컨테이너에 올린다. `container`를 주면 그 컨테이너에, 없으면 자기 `capa_component_container`에 올린다. `localization.launch.py`가 include한다                                                |
 
 ndt_omp를 colcon 패키지로 두지 않는다. 원본이 export하는 타깃이 QHULL, VTK 등 PCL 전체를 끌고 오고, `ndt_omp_ros2`와 같은 `include/pclomp`를 설치한다.
 

@@ -11,11 +11,11 @@ namespace prior_map_localization
 namespace
 {
 
-constexpr double kDeg = M_PI / 180.0;
+constexpr double deg = M_PI / 180.0;
 
 GyroBias::Params params()
 {
-  return {10.0, 2.0, 1.0 * kDeg, 0.03, 30.0};
+  return {10.0, 2.0, 1.0 * deg, 0.03, 30.0};
 }
 
 // 100 Hz IMU and 10 Hz LIO over [t0, t1), each given its own yaw rate at time t.
@@ -55,7 +55,7 @@ TEST(GyroBias, WithholdsLioThatDriftsFromTheImuAndFreezesTheBias)
   drive(g, 0.0, 60.0, imu, straight);
   const double learned = g.bias();
 
-  const auto drifting = [](double) { return 1.0 * kDeg; };
+  const auto drifting = [](double) { return 1.0 * deg; };
   const std::optional<double> tripped = drive(g, 60.0, 70.0, imu, drifting);
   ASSERT_TRUE(tripped);
   EXPECT_LT(*tripped - 60.0, 2.5);
@@ -70,7 +70,7 @@ TEST(GyroBias, WithholdsLioThatDriftsFromTheImuAndFreezesTheBias)
 TEST(GyroBias, AllowsTheScaleGapOfASharpTurn)
 {
   GyroBias g(params());
-  const auto lio = [](double) { return 44.0 * kDeg; };
+  const auto lio = [](double) { return 44.0 * deg; };
   const auto imu = [&](double t) { return 0.98 * lio(t); };
   EXPECT_FALSE(drive(g, 0.0, 4.0, imu, lio));
 }

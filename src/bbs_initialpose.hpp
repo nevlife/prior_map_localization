@@ -1,7 +1,7 @@
 #ifndef BBS_INITIALPOSE_HPP_
 #define BBS_INITIALPOSE_HPP_
 
-#include "bbs/bbs_branch_and_bound.hpp"
+#include "bbs_search.hpp"
 #include "corner_features.hpp"
 
 #include <Eigen/Geometry>
@@ -18,7 +18,6 @@
 
 #include <array>
 #include <cstdint>
-#include <deque>
 #include <memory>
 #include <optional>
 #include <string>
@@ -26,13 +25,6 @@
 
 namespace prior_map_localization
 {
-
-struct Pose2
-{
-  double x;
-  double y;
-  double yaw;
-};
 
 // /initialpose from one scan: a 2D branch-and-bound search of x, y and the full yaw circle
 // inside the GPS circle, against the map bundle's corner layer.
@@ -42,57 +34,32 @@ public:
   explicit BbsInitialPose(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
-  struct Vote
-  {
-    Pose2 map_from_odom;
-    double stamp_sec;
-  };
-
-  void load_maps(const std::string & corner_pcd, const std::string & map_pcd);
   void subscribe_points(const std::string & transport);
   template <typename Field>
   void on_points(
     const std::vector<Field> & fields, const std::uint8_t * data, std::size_t count,
     std::uint32_t step, double stamp, const std::string & frame_id);
-  bool vote(const Pose2 & map_from_odom, double stamp);
-  std::vector<std::array<double, 2>> scan_xy(
-    const std::vector<Eigen::Vector3f> & corners, const Eigen::Affine3f & base_from_sensor) const;
-  std::optional<double> ground_z(double x, double y) const;
   void publish(const Pose2 & pose, double z, double stamp);
   std::optional<Eigen::Affine3f> base_from_sensor(const std::string & frame_id);
 
   std::string map_frame_;
   std::string base_frame_;
   CornerParams corners_;
-  double resolution_;
-  double yaw_resolution_;
-  int pyramid_depth_;
-  double min_scan_range_;
-  double max_scan_range_;
-  int max_scan_points_;
+  BbsParams search_;
   double min_score_;
-  double radius_sigma_scale_;
-  double min_radius_;
-  double max_radius_;
-  double speed_margin_;
-  int required_votes_;
-  double vote_xy_tolerance_;
-  double vote_yaw_tolerance_;
-  double vote_timeout_sec_;
+  GpsRadiusParams gps_radius_;
   double ground_radius_;
   double base_height_;
   double xy_sigma_;
   double yaw_sigma_;
 
-  bbs::Grid occupancy_;
-  double origin_x_ = 0.0;
-  double origin_y_ = 0.0;
-  std::vector<Eigen::Vector3f> ground_;
+  CornerGrid grid_;
+  GroundHeight ground_;
+  PoseVote votes_;
 
   bool armed_ = true;
   std::optional<nav_msgs::msg::Odometry> gps_;
   std::optional<Pose2> odom_;
-  std::deque<Vote> votes_;
   std::optional<Eigen::Affine3f> base_from_sensor_;
 
   tf2_ros::Buffer tf_buffer_;

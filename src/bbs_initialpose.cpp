@@ -7,14 +7,11 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 
-#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstring>
-#include <deque>
 #include <memory>
 #include <optional>
-#include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -26,26 +23,10 @@ namespace
 {
 
 using FluxCloud = sensor_msgs::flux_msg::PointCloud2;
-constexpr auto kThrottleMs = 5000;
-
-double wrap(double a)
-{
-  return std::atan2(std::sin(a), std::cos(a));
-}
-
-Pose2 compose(const Pose2 & a, const Pose2 & b)
-{
-  const double c = std::cos(a.yaw);
-  const double s = std::sin(a.yaw);
-  return {a.x + c * b.x - s * b.y, a.y + s * b.x + c * b.y, wrap(a.yaw + b.yaw)};
-}
-
-Pose2 inverse(const Pose2 & a)
-{
-  const double c = std::cos(a.yaw);
-  const double s = std::sin(a.yaw);
-  return {-c * a.x - s * a.y, s * a.x - c * a.y, -a.yaw};
-}
+constexpr auto throttle_ms = 5000;
+// The search fixes x, y and yaw only; z, roll and pitch get loose fixed variances.
+constexpr double initial_z_variance = 1.0;
+constexpr double initial_roll_pitch_variance = 0.01;
 
 double yaw_of(const geometry_msgs::msg::Quaternion & q)
 {
@@ -128,30 +109,34 @@ BbsInitialPose::BbsInitialPose(const rclcpp::NodeOptions & options)
     static_cast<int>(declare_parameter<int>("corners.horizon_scan")),
     declare_parameter<double>("corners.min_range"), declare_parameter<double>("corners.max_range"),
     declare_parameter<double>("corners.edge_threshold")},
-  resolution_(declare_parameter<double>("search.resolution")),
-  yaw_resolution_(declare_parameter<double>("search.yaw_resolution_deg") * M_PI / 180.0),
-  pyramid_depth_(declare_parameter<int>("search.pyramid_depth")),
-  min_scan_range_(declare_parameter<double>("search.min_scan_range")),
-  max_scan_range_(declare_parameter<double>("search.max_scan_range")),
-  max_scan_points_(declare_parameter<int>("search.max_scan_points")),
+  search_{
+    declare_parameter<double>("search.resolution"),
+    declare_parameter<double>("search.yaw_resolution_deg") * M_PI / 180.0,
+    static_cast<int>(declare_parameter<int>("search.pyramid_depth")),
+    declare_parameter<double>("search.min_scan_range"),
+    declare_parameter<double>("search.max_scan_range"),
+    static_cast<int>(declare_parameter<int>("search.max_scan_points"))},
   min_score_(declare_parameter<double>("search.min_score")),
-  radius_sigma_scale_(declare_parameter<double>("gps.radius_sigma_scale")),
-  min_radius_(declare_parameter<double>("gps.min_radius")),
-  max_radius_(declare_parameter<double>("gps.max_radius")),
-  speed_margin_(declare_parameter<double>("gps.speed_margin")),
-  required_votes_(declare_parameter<int>("vote.required")),
-  vote_xy_tolerance_(declare_parameter<double>("vote.xy_tolerance")),
-  vote_yaw_tolerance_(declare_parameter<double>("vote.yaw_tolerance_deg") * M_PI / 180.0),
-  vote_timeout_sec_(declare_parameter<double>("vote.timeout_sec")),
+  gps_radius_{
+    declare_parameter<double>("gps.radius_sigma_scale"),
+    declare_parameter<double>("gps.min_radius"), declare_parameter<double>("gps.max_radius"),
+    declare_parameter<double>("gps.speed_margin")},
   ground_radius_(declare_parameter<double>("ground_radius")),
   base_height_(declare_parameter<double>("base_height")),
   xy_sigma_(declare_parameter<double>("initial_xy_sigma")),
   yaw_sigma_(declare_parameter<double>("initial_yaw_sigma_deg") * M_PI / 180.0),
+  grid_(load_xyz(declare_parameter<std::string>("corner_pcd")), search_.resolution),
+  ground_(load_xyz(declare_parameter<std::string>("map_pcd")), ground_radius_),
+  votes_(PoseVote::Params{
+    static_cast<int>(declare_parameter<int>("vote.required")),
+    declare_parameter<double>("vote.xy_tolerance"),
+    declare_parameter<double>("vote.yaw_tolerance_deg") * M_PI / 180.0,
+    declare_parameter<double>("vote.timeout_sec")}),
   tf_buffer_(get_clock()),
   tf_listener_(tf_buffer_)
 {
-  load_maps(
-    declare_parameter<std::string>("corner_pcd"), declare_parameter<std::string>("map_pcd"));
+  RCLCPP_INFO(
+    get_logger(), "corner grid %dx%d at %.2f m", grid_.width(), grid_.height(), search_.resolution);
   initialpose_pub_ =
     create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("~/output/initialpose", 1);
   set_pose_pub_ =
@@ -173,33 +158,6 @@ BbsInitialPose::BbsInitialPose(const rclcpp::NodeOptions & options)
       }
     });
   subscribe_points(declare_parameter<std::string>("transport"));
-}
-
-void BbsInitialPose::load_maps(const std::string & corner_pcd, const std::string & map_pcd)
-{
-  const std::vector<Eigen::Vector3f> corners = load_xyz(corner_pcd);
-  float min_x = corners[0].x(), min_y = corners[0].y();
-  float max_x = min_x, max_y = min_y;
-  for (const auto & p : corners) {
-    min_x = std::min(min_x, p.x());
-    min_y = std::min(min_y, p.y());
-    max_x = std::max(max_x, p.x());
-    max_y = std::max(max_y, p.y());
-  }
-  origin_x_ = min_x;
-  origin_y_ = min_y;
-  occupancy_ = bbs::Grid(
-    static_cast<int>((max_y - min_y) / resolution_) + 1,
-    static_cast<int>((max_x - min_x) / resolution_) + 1);
-  for (const auto & p : corners) {
-    occupancy_.set(
-      static_cast<int>((p.y() - min_y) / resolution_),
-      static_cast<int>((p.x() - min_x) / resolution_), 1);
-  }
-  ground_ = load_xyz(map_pcd);
-  RCLCPP_INFO(
-    get_logger(), "corner grid %dx%d at %.2f m from %zu points", occupancy_.width,
-    occupancy_.height, resolution_, corners.size());
 }
 
 void BbsInitialPose::subscribe_points(const std::string & transport)
@@ -246,7 +204,7 @@ void BbsInitialPose::on_points(
   }
   const std::optional<RingFields> f = ring_fields(fields);
   if (!f) {
-    RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), kThrottleMs, "scan lacks x/y/z/ring");
+    RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), throttle_ms, "scan lacks x/y/z/ring");
     return;
   }
   const std::optional<Eigen::Affine3f> sensor = base_from_sensor(frame_id);
@@ -255,134 +213,47 @@ void BbsInitialPose::on_points(
   }
   const auto start = std::chrono::steady_clock::now();
   const std::vector<std::array<double, 2>> scan =
-    scan_xy(extract_corners(read_points(data, count, step, *f), corners_), *sensor);
-
-  const double gps_sigma = std::sqrt(std::max(gps_->pose.covariance[0], gps_->pose.covariance[7]));
-  const double gps_age = std::abs(stamp - stamp_sec(gps_->header.stamp));
-  const double radius =
-    std::clamp(radius_sigma_scale_ * gps_sigma + speed_margin_ * gps_age, min_radius_, max_radius_);
-  const double gx = gps_->pose.pose.position.x;
-  const double gy = gps_->pose.pose.position.y;
-
-  // Crop the grid to what the scan can reach from inside the circle.
-  const int reach = static_cast<int>(std::ceil((radius + max_scan_range_) / resolution_));
-  const int cx = static_cast<int>((gx - origin_x_) / resolution_);
-  const int cy = static_cast<int>((gy - origin_y_) / resolution_);
-  const int x0 = std::max(0, cx - reach);
-  const int y0 = std::max(0, cy - reach);
-  const int x1 = std::min(occupancy_.width - 1, cx + reach);
-  const int y1 = std::min(occupancy_.height - 1, cy + reach);
-  if (x1 < x0 || y1 < y0) {
-    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), kThrottleMs, "GPS is off the map");
+    scan_xy(extract_corners(read_points(data, count, step, *f), corners_), *sensor, search_);
+  const double radius = search_radius(
+    gps_radius_, gps_->pose.covariance[0], gps_->pose.covariance[7], stamp,
+    stamp_sec(gps_->header.stamp));
+  const std::optional<GridCrop> crop = grid_.crop(
+    gps_->pose.pose.position.x, gps_->pose.pose.position.y, radius, search_.max_scan_range);
+  if (!crop) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), throttle_ms, "GPS is off the map");
     return;
   }
-  bbs::Grid crop(y1 - y0 + 1, x1 - x0 + 1);
-  for (int y = y0; y <= y1; ++y) {
-    std::memcpy(
-      &crop.data[static_cast<std::size_t>(y - y0) * crop.width],
-      &occupancy_.data[static_cast<std::size_t>(y) * occupancy_.width + x0], crop.width);
-  }
-  const int r = static_cast<int>(std::ceil(radius / resolution_));
-  const bbs::CellWindow window{cx - r - x0, cy - r - y0, cx + r - x0, cy + r - y0};
-  const std::vector<bbs::BbsGridCandidate> best = bbs::branch_and_bound_candidates(
-    crop, scan, resolution_, yaw_resolution_, pyramid_depth_, 2, window,
-    static_cast<int>(std::ceil(2.0 / resolution_)));
+  const std::optional<BbsMatch> match = grid_.search(*crop, scan, search_);
   const double elapsed_ms =
     std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
-  if (best.empty()) {
+  if (!match) {
     return;
   }
-  const bbs::BbsGridCandidate & top = best[0];
-  const Pose2 map_from_base{
-    origin_x_ + (x0 + top.tx_cell + 0.5) * resolution_,
-    origin_y_ + (y0 + top.ty_cell + 0.5) * resolution_, top.yaw_rad};
-  const double runner_up = best.size() > 1 ? best[1].score : 0.0;
+  const Pose2 & map_from_base = match->map_from_base;
   RCLCPP_INFO(
     get_logger(),
     "BBS (%.2f, %.2f) yaw %.1f deg score %.3f (next %.3f) scan %zu radius %.1f m in %.0f ms",
-    map_from_base.x, map_from_base.y, map_from_base.yaw * 180.0 / M_PI, top.score, runner_up,
-    scan.size(), radius, elapsed_ms);
-  if (top.score < min_score_) {
+    map_from_base.x, map_from_base.y, map_from_base.yaw * 180.0 / M_PI, match->score,
+    match->runner_up, scan.size(), radius, elapsed_ms);
+  if (match->score < min_score_) {
     votes_.clear();
     return;
   }
   const Pose2 odom_now = *odom_;
-  if (!vote(compose(map_from_base, inverse(odom_now)), stamp)) {
+  const Pose2 map_from_odom = compose(map_from_base, inverse(odom_now));
+  if (!votes_.add(map_from_odom, stamp)) {
     return;
   }
-  const Pose2 pose = compose(votes_.back().map_from_odom, odom_now);
-  const std::optional<double> z = ground_z(pose.x, pose.y);
+  const Pose2 pose = compose(map_from_odom, odom_now);
+  const std::optional<double> z = ground_.at(pose.x, pose.y);
   if (!z) {
     RCLCPP_WARN(get_logger(), "no map points under (%.2f, %.2f)", pose.x, pose.y);
     votes_.clear();
     return;
   }
-  publish(pose, *z, stamp);
+  publish(pose, *z + base_height_, stamp);
   armed_ = false;
   votes_.clear();
-}
-
-// Map->odom stays put while the robot moves, so votes from different scans compare directly.
-bool BbsInitialPose::vote(const Pose2 & map_from_odom, double stamp)
-{
-  while (!votes_.empty() && stamp - votes_.front().stamp_sec > vote_timeout_sec_) {
-    votes_.pop_front();
-  }
-  votes_.push_back({map_from_odom, stamp});
-  int agree = 0;
-  for (const Vote & v : votes_) {
-    if (
-      std::hypot(v.map_from_odom.x - map_from_odom.x, v.map_from_odom.y - map_from_odom.y) <=
-        vote_xy_tolerance_ &&
-      std::abs(wrap(v.map_from_odom.yaw - map_from_odom.yaw)) <= vote_yaw_tolerance_) {
-      ++agree;
-    }
-  }
-  return agree >= required_votes_;
-}
-
-std::vector<std::array<double, 2>> BbsInitialPose::scan_xy(
-  const std::vector<Eigen::Vector3f> & corners, const Eigen::Affine3f & base_from_sensor) const
-{
-  std::set<std::pair<int, int>> cells;
-  std::vector<std::array<double, 2>> out;
-  for (const auto & c : corners) {
-    const Eigen::Vector3f p = base_from_sensor * c;
-    const double range = std::hypot(p.x(), p.y());
-    if (range < min_scan_range_ || range > max_scan_range_) {
-      continue;
-    }
-    const std::pair<int, int> cell{
-      static_cast<int>(std::floor(p.x() / resolution_)),
-      static_cast<int>(std::floor(p.y() / resolution_))};
-    if (cells.insert(cell).second) {
-      out.push_back({p.x(), p.y()});
-    }
-  }
-  if (static_cast<int>(out.size()) > max_scan_points_) {
-    std::vector<std::array<double, 2>> thinned;
-    for (int i = 0; i < max_scan_points_; ++i) {
-      thinned.push_back(out[i * out.size() / max_scan_points_]);
-    }
-    out = std::move(thinned);
-  }
-  return out;
-}
-
-std::optional<double> BbsInitialPose::ground_z(double x, double y) const
-{
-  std::vector<float> near;
-  for (const auto & p : ground_) {
-    if (std::hypot(p.x() - x, p.y() - y) < ground_radius_) {
-      near.push_back(p.z());
-    }
-  }
-  if (near.empty()) {
-    return std::nullopt;
-  }
-  const std::size_t k = near.size() / 20;
-  std::nth_element(near.begin(), near.begin() + k, near.end());
-  return near[k] + base_height_;
 }
 
 void BbsInitialPose::publish(const Pose2 & pose, double z, double stamp)
@@ -396,8 +267,8 @@ void BbsInitialPose::publish(const Pose2 & pose, double z, double stamp)
   out.pose.pose.orientation.z = std::sin(pose.yaw / 2);
   out.pose.pose.orientation.w = std::cos(pose.yaw / 2);
   out.pose.covariance[0] = out.pose.covariance[7] = xy_sigma_ * xy_sigma_;
-  out.pose.covariance[14] = 1.0;
-  out.pose.covariance[21] = out.pose.covariance[28] = 0.01;
+  out.pose.covariance[14] = initial_z_variance;
+  out.pose.covariance[21] = out.pose.covariance[28] = initial_roll_pitch_variance;
   out.pose.covariance[35] = yaw_sigma_ * yaw_sigma_;
   initialpose_pub_->publish(out);
   set_pose_pub_->publish(out);
@@ -413,7 +284,7 @@ std::optional<Eigen::Affine3f> BbsInitialPose::base_from_sensor(const std::strin
       const auto t = tf_buffer_.lookupTransform(base_frame_, frame_id, tf2::TimePointZero);
       base_from_sensor_ = tf2::transformToEigen(t).cast<float>();
     } catch (const tf2::TransformException & e) {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), kThrottleMs, "%s", e.what());
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), throttle_ms, "%s", e.what());
     }
   }
   return base_from_sensor_;

@@ -34,6 +34,7 @@ set_target_properties(ndt_omp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # Every node is a component with a standalone <node>_node executable. The launch files load them
 # into one capa_component_container; a standalone matcher or bbs_initialpose serves dds only.
 add_library(prior_map_matcher_component SHARED
+  src/pose_tracker.cpp
   src/prior_map_matcher.cpp
   src/registration.cpp
   src/scan.cpp)
@@ -46,6 +47,7 @@ rclcpp_components_register_node(prior_map_matcher_component
 
 add_library(bbs_initialpose_component SHARED
   src/bbs_initialpose.cpp
+  src/bbs_search.cpp
   src/corner_features.cpp)
 target_include_directories(bbs_initialpose_component PRIVATE thirdparty
   ${flux_std_adapters_INCLUDE_DIRS})
@@ -57,6 +59,7 @@ rclcpp_components_register_node(bbs_initialpose_component
 
 add_library(lio_twist_relay_component SHARED
   src/gyro_bias.cpp
+  src/lio_twist.cpp
   src/lio_twist_relay.cpp)
 ament_target_dependencies(lio_twist_relay_component geometry_msgs nav_msgs rclcpp rclcpp_components
   sensor_msgs tf2_ros)
@@ -68,7 +71,7 @@ ament_target_dependencies(wheel_twist_relay_component geometry_msgs rclcpp rclcp
 rclcpp_components_register_node(wheel_twist_relay_component
   PLUGIN "prior_map_localization::WheelTwistRelay" EXECUTABLE wheel_twist_relay_node)
 
-add_library(gps_cov_floor_component SHARED src/gps_cov_floor.cpp)
+add_library(gps_cov_floor_component SHARED src/cov_floor.cpp src/gps_cov_floor.cpp)
 ament_target_dependencies(gps_cov_floor_component rclcpp rclcpp_components sensor_msgs)
 rclcpp_components_register_node(gps_cov_floor_component
   PLUGIN "prior_map_localization::GpsCovFloor" EXECUTABLE gps_cov_floor_node)
@@ -104,6 +107,21 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_gyro_bias test/test_gyro_bias.cpp src/gyro_bias.cpp)
   target_include_directories(test_gyro_bias PRIVATE src)
+
+  ament_add_gtest(test_bbs_search test/test_bbs_search.cpp src/bbs_search.cpp)
+  target_include_directories(test_bbs_search PRIVATE src thirdparty)
+  target_include_directories(test_bbs_search SYSTEM PRIVATE ${EIGEN3_INCLUDE_DIR})
+
+  ament_add_gtest(test_pose_tracker test/test_pose_tracker.cpp src/pose_tracker.cpp)
+  target_include_directories(test_pose_tracker PRIVATE src)
+  target_include_directories(test_pose_tracker SYSTEM PRIVATE ${PCL_INCLUDE_DIRS})
+
+  ament_add_gtest(test_lio_twist test/test_lio_twist.cpp src/lio_twist.cpp)
+  target_include_directories(test_lio_twist PRIVATE src)
+  target_include_directories(test_lio_twist SYSTEM PRIVATE ${EIGEN3_INCLUDE_DIR})
+
+  ament_add_gtest(test_cov_floor test/test_cov_floor.cpp src/cov_floor.cpp)
+  target_include_directories(test_cov_floor PRIVATE src)
 endif()
 
 ament_package()

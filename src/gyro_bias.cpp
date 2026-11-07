@@ -8,7 +8,7 @@ namespace
 {
 
 // The IMU yaw is kept this long, longer than any LIO interval or check window.
-constexpr double kImuHistorySec = 10.0;
+constexpr double imu_history_sec = 10.0;
 
 }  // namespace
 
@@ -24,7 +24,7 @@ void GyroBias::add_imu(double stamp, double yaw_rate)
     yaw = last.yaw + 0.5 * (yaw_rate + last.rate) * (stamp - last.stamp);
   }
   imu_yaw_.push_back({stamp, yaw, yaw_rate});
-  while (imu_yaw_.front().stamp < stamp - kImuHistorySec) {
+  while (imu_yaw_.front().stamp < stamp - imu_history_sec) {
     imu_yaw_.pop_front();
   }
 }

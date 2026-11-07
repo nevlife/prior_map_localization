@@ -57,6 +57,12 @@ Registration make_small_gicp(const SmallGicpParams & params, int threads, int ma
 Alignment align(
   Registration & registration, const Cloud::Ptr & cloud, const Eigen::Matrix4f & seed);
 
+// About 100 map points, evenly spaced through the cloud.
+Cloud::Ptr warmup_probe(const Cloud & map);
+
+// The first align builds the search trees; a sparse probe pays for it here, not on a scan.
+void set_target(Registration & registration, const Cloud::Ptr & map);
+
 }  // namespace prior_map_localization
 
 #endif  // REGISTRATION_HPP_

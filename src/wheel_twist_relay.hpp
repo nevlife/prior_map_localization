@@ -7,6 +7,7 @@
 #include <std_msgs/msg/float64.hpp>
 
 #include <array>
+#include <string>
 
 namespace prior_map_localization
 {
@@ -21,6 +22,7 @@ public:
 private:
   void on_speed(const std_msgs::msg::Float64 & msg);
 
+  std::string twist_frame_;
   double scale_;
   std::array<double, 36> covariance_;
   rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr pub_;

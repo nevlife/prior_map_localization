@@ -46,7 +46,7 @@ std::vector<float> sorted_x(const Cloud & cloud)
   return xs;
 }
 
-TEST(RawScanFields, NeedsXYZAndTime)
+TEST(RawScanFields, NeedsXyzAndTime)
 {
   EXPECT_TRUE(raw_scan_fields({{"x", 0}, {"y", 4}, {"z", 8}, {"time", 12}}));
   EXPECT_FALSE(raw_scan_fields({{"x", 0}, {"y", 4}, {"z", 8}, {"intensity", 12}}));

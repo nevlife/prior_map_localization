@@ -1,8 +1,8 @@
 #include "gps_cov_floor.hpp"
 
-#include <sensor_msgs/msg/nav_sat_status.hpp>
+#include "cov_floor.hpp"
 
-#include <algorithm>
+#include <sensor_msgs/msg/nav_sat_status.hpp>
 
 namespace prior_map_localization
 {
@@ -26,11 +26,7 @@ void GpsCovFloor::on_fix(sensor_msgs::msg::NavSatFix msg)
   }
   const bool rtk = msg.status.status >= Status::STATUS_GBAS_FIX;
   const double floor = rtk ? rtk_floor_ : float_floor_;
-  const auto reported = msg.position_covariance;
-  msg.position_covariance.fill(0.0);
-  msg.position_covariance[0] = std::max(reported[0], floor * floor);
-  msg.position_covariance[4] = std::max(reported[4], floor * floor);
-  msg.position_covariance[8] = std::max(reported[8], 4.0 * floor * floor);
+  msg.position_covariance = floor_covariance(msg.position_covariance, floor);
   msg.position_covariance_type = sensor_msgs::msg::NavSatFix::COVARIANCE_TYPE_DIAGONAL_KNOWN;
   pub_->publish(msg);
 }

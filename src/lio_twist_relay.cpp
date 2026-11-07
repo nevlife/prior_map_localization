@@ -10,6 +10,9 @@ namespace prior_map_localization
 namespace
 {
 
+// Linear z and the roll and pitch rates; the EKFs run in two_d_mode and do not fuse them.
+constexpr double unobserved_variance = 1e3;
+
 double seconds(const builtin_interfaces::msg::Time & stamp)
 {
   return stamp.sec + stamp.nanosec * 1e-9;
@@ -29,6 +32,7 @@ Eigen::Matrix3d rotation(const geometry_msgs::msg::Quaternion & q)
 
 LioTwistRelay::LioTwistRelay(const rclcpp::NodeOptions & options)
 : Node("lio_twist_relay", options),
+  base_frame_(declare_parameter<std::string>("base_frame")),
   imu_frame_(declare_parameter<std::string>("imu_frame")),
   gyro_(GyroBias::Params{
     declare_parameter<double>("bias_time_constant_sec"),
@@ -48,7 +52,7 @@ LioTwistRelay::LioTwistRelay(const rclcpp::NodeOptions & options)
   covariance_[7] = vy_sigma * vy_sigma;
   covariance_[35] = wz_sigma * wz_sigma;
   for (const int i : {14, 21, 28}) {
-    covariance_[i] = 1e3;
+    covariance_[i] = unobserved_variance;
   }
   twist_pub_ =
     create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("~/output/twist", 20);
@@ -63,17 +67,16 @@ LioTwistRelay::LioTwistRelay(const rclcpp::NodeOptions & options)
 
 bool LioTwistRelay::has_mount()
 {
-  if (base_rotation_) {
+  if (mount_) {
     return true;
   }
   // tf_static can arrive after the first FAST-LIO pose or IMU sample.
-  if (!tf_buffer_.canTransform("base_link", imu_frame_, tf2::TimePointZero)) {
+  if (!tf_buffer_.canTransform(base_frame_, imu_frame_, tf2::TimePointZero)) {
     return false;
   }
-  const auto tf = tf_buffer_.lookupTransform("base_link", imu_frame_, tf2::TimePointZero);
-  base_rotation_ = rotation(tf.transform.rotation);
+  const auto tf = tf_buffer_.lookupTransform(base_frame_, imu_frame_, tf2::TimePointZero);
   const auto & t = tf.transform.translation;
-  imu_to_base_ = -Eigen::Vector3d(t.x, t.y, t.z);
+  mount_ = ImuMount{rotation(tf.transform.rotation), -Eigen::Vector3d(t.x, t.y, t.z)};
   return true;
 }
 
@@ -83,9 +86,9 @@ void LioTwistRelay::on_imu(sensor_msgs::msg::Imu msg)
     return;
   }
   auto & av = msg.angular_velocity;
-  const Eigen::Vector3d w = *base_rotation_ * Eigen::Vector3d(av.x, av.y, av.z);
+  const Eigen::Vector3d w = mount_->base_rotation * Eigen::Vector3d(av.x, av.y, av.z);
   gyro_.add_imu(seconds(msg.header.stamp), w.z());
-  const Eigen::Vector3d bias = base_rotation_->transpose() * Eigen::Vector3d(0, 0, gyro_.bias());
+  const Eigen::Vector3d bias = imu_bias(*mount_, gyro_.bias());
   av.x -= bias.x();
   av.y -= bias.y();
   av.z -= bias.z();
@@ -98,17 +101,13 @@ void LioTwistRelay::on_odom(const nav_msgs::msg::Odometry & msg)
     return;
   }
   const rclcpp::Time stamp(msg.header.stamp);
-  const Eigen::Matrix3d rot = rotation(msg.pose.pose.orientation);
   const auto & p = msg.pose.pose.position;
-  const Eigen::Vector3d position(p.x, p.y, p.z);
-  if (prev_) {
-    const double dt = (stamp - prev_->stamp).seconds();
-    const Eigen::Vector3d v_imu = prev_->rotation.transpose() * (position - prev_->position) / dt;
-    const Eigen::AngleAxisd turn(prev_->rotation.transpose() * rot);
-    const Eigen::Vector3d w = *base_rotation_ * (turn.angle() * turn.axis() / dt);
-    const Eigen::Vector3d v = *base_rotation_ * v_imu + w.cross(imu_to_base_);
+  const LioPose pose{rotation(msg.pose.pose.orientation), Eigen::Vector3d(p.x, p.y, p.z)};
+  if (prev_stamp_) {
+    const double dt = (stamp - *prev_stamp_).seconds();
+    const BaseTwist twist = base_twist(*mount_, prev_, pose, dt);
     const double t1 = stamp.seconds();
-    if (const std::optional<double> gap = gyro_.add_lio(t1 - dt, t1, w.z() * dt)) {
+    if (const std::optional<double> gap = gyro_.add_lio(t1 - dt, t1, twist.angular.z() * dt)) {
       RCLCPP_WARN(
         get_logger(),
         "LIO yaw disagrees with the IMU by %.2f deg over %.1f s; withholding LIO "
@@ -117,10 +116,11 @@ void LioTwistRelay::on_odom(const nav_msgs::msg::Odometry & msg)
     }
     if (!gyro_.lio_withheld(t1)) {
       // The twist is the mean over the scan interval, so it belongs to its middle.
-      publish(prev_->stamp + (stamp - prev_->stamp) * 0.5, v, w);
+      publish(*prev_stamp_ + (stamp - *prev_stamp_) * 0.5, twist.linear, twist.angular);
     }
   }
-  prev_ = Pose{stamp, rot, position};
+  prev_stamp_ = stamp;
+  prev_ = pose;
 }
 
 void LioTwistRelay::publish(
@@ -128,7 +128,7 @@ void LioTwistRelay::publish(
 {
   geometry_msgs::msg::TwistWithCovarianceStamped out;
   out.header.stamp = stamp;
-  out.header.frame_id = "base_link";
+  out.header.frame_id = base_frame_;
   out.twist.twist.linear.x = v.x();
   out.twist.twist.linear.y = v.y();
   out.twist.twist.linear.z = v.z();
