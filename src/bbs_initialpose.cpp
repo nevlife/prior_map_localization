@@ -163,9 +163,9 @@ BbsInitialPose::BbsInitialPose(const rclcpp::NodeOptions & options)
 void BbsInitialPose::subscribe_points(const std::string & transport)
 {
   if (transport == "flux") {
-    flux_sub_ = std::make_shared<flux::Subscription>(
-      *this, "~/input/points", FluxCloud::kFingerprint, flux::QoS{},
-      [this](const flux::FrameView & frame) {
+    flux_sub_ = flux::create_subscription(
+      *this, "~/input/points", flux::QoS{},
+      [this](const flux::Frame & frame) {
         const FluxCloud::View v{frame};
         std::vector<std::pair<std::string_view, std::uint32_t>> fields;
         for (std::size_t i = 0; i < v.fields__size(); ++i) {
@@ -174,7 +174,8 @@ void BbsInitialPose::subscribe_points(const std::string & transport)
         on_points(
           fields, v.data().data(), std::size_t{v.width()} * v.height(), v.point_step(),
           v.header__sec() + v.header__nanosec() * 1e-9, std::string(v.header__frame_id()));
-      });
+      },
+      {}, FluxCloud::kFingerprint);
     flux_sub_->add_to_callback_group(*this);
     return;
   }

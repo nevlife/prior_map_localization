@@ -126,9 +126,9 @@ void PriorMapMatcher::subscribe_points(const std::string & transport)
 
 void PriorMapMatcher::subscribe_flux_points()
 {
-  flux_sub_ = std::make_shared<flux::Subscription>(
-    *this, "~/input/points", FluxCloud::kFingerprint, flux::QoS{},
-    [this](const flux::FrameView & frame) {
+  flux_sub_ = flux::create_subscription(
+    *this, "~/input/points", flux::QoS{},
+    [this](const flux::Frame & frame) {
       const FluxCloud::View v{frame};
       FieldOffsets fields;
       for (std::size_t i = 0; i < v.fields__size(); ++i) {
@@ -145,7 +145,8 @@ void PriorMapMatcher::subscribe_flux_points()
       raw->stamp_sec = v.header__sec() + v.header__nanosec() * 1e-9;
       raw->frame_id = v.header__frame_id();
       on_points(*raw);
-    });
+    },
+    {}, FluxCloud::kFingerprint);
   flux_sub_->add_to_callback_group(*this);
 }
 
