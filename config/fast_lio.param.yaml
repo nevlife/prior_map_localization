@@ -9,7 +9,7 @@
     runtime_pos_log_enable: false
     map_file_path: ""
     common:
-      lid_topic: /velodyne_points
+      lid_topic: /velodyne_points/filtered  # lidar_filter cuts the robot's rear
       imu_topic: /vectornav/imu
       time_sync_en: false
       time_offset_lidar_to_imu: 0.0

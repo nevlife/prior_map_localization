@@ -54,6 +54,47 @@ TEST(BaseTwist, MountRotationTurnsTheRatesIntoTheBaseFrame)
   EXPECT_NEAR(t.linear.x(), 1.0, 1e-12);
 }
 
+// The vectornav mount: right-forward-up axes, 0.129 m ahead of and 0.714 m above the base.
+ImuMount vectornav_mount()
+{
+  return {yaw(-M_PI / 2), Eigen::Vector3d(-0.129, 0.0, -0.714)};
+}
+
+TEST(StateTwist, WorldVelocityBecomesForwardBaseVelocity)
+{
+  // The robot heads along world y, so IMU x (right) points along world x.
+  const ImuMount mount = vectornav_mount();
+  const Eigen::Matrix3d imu_in_world = yaw(M_PI / 2) * mount.base_rotation;
+  const BaseTwist t =
+    base_twist(mount, imu_in_world, Eigen::Vector3d(0.0, 1.5, 0.0), Eigen::Vector3d::Zero());
+  EXPECT_NEAR(t.linear.x(), 1.5, 1e-12);
+  EXPECT_NEAR(t.linear.y(), 0.0, 1e-12);
+}
+
+TEST(StateTwist, LeverArmRemovesTheImuSweep)
+{
+  const ImuMount mount = vectornav_mount();
+  const double wz = 0.5;
+  // Turning in place, the IMU 0.129 m ahead of the base moves left at wz * 0.129.
+  const Eigen::Matrix3d imu_in_world = mount.base_rotation;
+  const Eigen::Vector3d imu_velocity(0.0, wz * 0.129, 0.0);
+  const BaseTwist t = base_twist(mount, imu_in_world, imu_velocity, Eigen::Vector3d(0.0, 0.0, wz));
+  EXPECT_NEAR(t.angular.z(), wz, 1e-12);
+  EXPECT_NEAR(t.linear.x(), 0.0, 1e-12);
+  EXPECT_NEAR(t.linear.y(), 0.0, 1e-12);
+}
+
+TEST(StateTwist, CovarianceFollowsTheHeading)
+{
+  const Eigen::Matrix3d world = Eigen::Vector3d(4.0, 1.0, 0.0).asDiagonal();
+  const ImuMount mount = vectornav_mount();
+  const Eigen::Matrix3d imu_in_world = yaw(M_PI / 2) * mount.base_rotation;
+  const Eigen::Matrix3d base = base_covariance(mount, imu_in_world, world);
+  EXPECT_NEAR(base(0, 0), 1.0, 1e-12);
+  EXPECT_NEAR(base(1, 1), 4.0, 1e-12);
+  EXPECT_NEAR(base(0, 1), 0.0, 1e-12);
+}
+
 TEST(ImuBias, IsTheBaseYawBiasInTheImuFrame)
 {
   const Eigen::Matrix3d flip = Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitX()).toRotationMatrix();

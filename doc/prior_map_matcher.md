@@ -117,7 +117,7 @@ fitness는 두 엔진 모두 PCL `getFitnessScore()`라 같은 기준으로 판�
 
 ```bash
 ros2 launch prior_map_localization prior_map_matcher.launch.py map_config:=<map_pcd를 담은 param 파일> [transport:=flux] [container:=/<컨테이너>]
-ros2 launch prior_map_localization localization.launch.py [lio:=true]
+ros2 launch prior_map_localization localization.launch.py method:=prior_map [lio:=false]
 ```
 
 지도 경로는 `config/map.param.yaml` 한 곳에 둔다. prior_map_matcher와 bbs_initialpose가 같은 파일을 파라미터로 받는다.

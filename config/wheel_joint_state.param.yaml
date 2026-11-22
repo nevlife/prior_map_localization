@@ -1,0 +1,3 @@
+/**:
+  ros__parameters:  # wheel_scale comes from wheel.param.yaml
+    joint_name: center_wheel  # must be in the MINS wheel sub_topics

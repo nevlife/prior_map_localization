@@ -15,6 +15,23 @@ BaseTwist base_twist(
   return {v, w};
 }
 
+BaseTwist base_twist(
+  const ImuMount & mount, const Eigen::Matrix3d & rotation, const Eigen::Vector3d & velocity,
+  const Eigen::Vector3d & angular_velocity)
+{
+  const Eigen::Vector3d w = mount.base_rotation * angular_velocity;
+  const Eigen::Vector3d v =
+    mount.base_rotation * (rotation.transpose() * velocity) + w.cross(mount.imu_to_base);
+  return {v, w};
+}
+
+Eigen::Matrix3d base_covariance(
+  const ImuMount & mount, const Eigen::Matrix3d & rotation, const Eigen::Matrix3d & covariance)
+{
+  const Eigen::Matrix3d r = mount.base_rotation * rotation.transpose();
+  return r * covariance * r.transpose();
+}
+
 Eigen::Vector3d imu_bias(const ImuMount & mount, double yaw_bias)
 {
   return mount.base_rotation.transpose() * Eigen::Vector3d(0, 0, yaw_bias);

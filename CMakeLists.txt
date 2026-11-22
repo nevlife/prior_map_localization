@@ -67,9 +67,20 @@ rclcpp_components_register_node(lio_twist_relay_component
   PLUGIN "prior_map_localization::LioTwistRelay" EXECUTABLE lio_twist_relay_node)
 
 add_library(wheel_twist_relay_component SHARED src/wheel_twist_relay.cpp)
-ament_target_dependencies(wheel_twist_relay_component geometry_msgs rclcpp rclcpp_components std_msgs)
+ament_target_dependencies(wheel_twist_relay_component geometry_msgs nav_msgs rclcpp rclcpp_components)
 rclcpp_components_register_node(wheel_twist_relay_component
   PLUGIN "prior_map_localization::WheelTwistRelay" EXECUTABLE wheel_twist_relay_node)
+
+add_library(wheel_joint_state_component SHARED src/wheel_joint_state.cpp src/wheel_speed.cpp)
+ament_target_dependencies(wheel_joint_state_component nav_msgs rclcpp rclcpp_components sensor_msgs)
+rclcpp_components_register_node(wheel_joint_state_component
+  PLUGIN "prior_map_localization::WheelJointState" EXECUTABLE wheel_joint_state_node)
+
+add_library(mins_twist_relay_component SHARED src/lio_twist.cpp src/mins_twist_relay.cpp)
+ament_target_dependencies(mins_twist_relay_component geometry_msgs nav_msgs rclcpp
+  rclcpp_components tf2_ros)
+rclcpp_components_register_node(mins_twist_relay_component
+  PLUGIN "prior_map_localization::MinsTwistRelay" EXECUTABLE mins_twist_relay_node)
 
 add_library(gps_cov_floor_component SHARED src/cov_floor.cpp src/gps_cov_floor.cpp)
 ament_target_dependencies(gps_cov_floor_component rclcpp rclcpp_components sensor_msgs)
@@ -77,7 +88,8 @@ rclcpp_components_register_node(gps_cov_floor_component
   PLUGIN "prior_map_localization::GpsCovFloor" EXECUTABLE gps_cov_floor_node)
 
 set(components prior_map_matcher_component bbs_initialpose_component lio_twist_relay_component
-  wheel_twist_relay_component gps_cov_floor_component)
+  wheel_twist_relay_component wheel_joint_state_component mins_twist_relay_component
+  gps_cov_floor_component)
 foreach(target ${components})
   target_compile_features(${target} PRIVATE cxx_std_17)
   target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
@@ -122,6 +134,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_cov_floor test/test_cov_floor.cpp src/cov_floor.cpp)
   target_include_directories(test_cov_floor PRIVATE src)
+
+  ament_add_gtest(test_wheel_speed test/test_wheel_speed.cpp src/wheel_speed.cpp)
+  target_include_directories(test_wheel_speed PRIVATE src)
 endif()
 
 ament_package()

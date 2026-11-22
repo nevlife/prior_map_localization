@@ -1,0 +1,3 @@
+/**:  # read by every node that uses the wheel speed: wheel_twist_relay, wheel_joint_state
+  ros__parameters:
+    wheel_scale: 0.935  # Hunter speed over-reports distance

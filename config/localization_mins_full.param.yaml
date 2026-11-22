@@ -1,0 +1,3 @@
+mins:  # MINS fuses the IMU, camera, wheel and GPS itself; no EKF runs
+  ros__parameters:
+    config_path: vnr_wheel_gps/config.yaml  # in the mins package config/; the launch file resolves it

@@ -1,0 +1,4 @@
+/**:
+  ros__parameters:
+    base_frame: base_link
+    imu_frame: vectornav

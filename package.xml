@@ -3,7 +3,7 @@
 <package format="3">
   <name>prior_map_localization</name>
   <version>0.1.0</version>
-  <description>scan-to-map matching (prior_map_matcher), FAST-LIO odometry and robot_localization EKFs.</description>
+  <description>Localization by FAST-LIO, MINS or scan-to-map matching (prior_map_matcher), fused with GPS in robot_localization EKFs.</description>
   <maintainer email="nevlife000720@gmail.com">nev</maintainer>
   <license>MIT</license>
 
@@ -26,6 +26,7 @@
   <exec_depend>capa_ros</exec_depend>
   <exec_depend>fast_lio</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>mins</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>robot_localization</exec_depend>

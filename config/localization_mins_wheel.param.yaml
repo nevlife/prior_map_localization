@@ -1,0 +1,52 @@
+# MINS fuses the IMU, camera and wheel; ekf_map adds GPS to the MINS twist. ekf_odom integrates the
+# MINS twist into odom->base_link, because navsat_transform needs map->base_link on TF.
+mins:
+  ros__parameters:
+    config_path: vnr_wheel/config.yaml  # in the mins package config/; the launch file resolves it
+
+ekf_odom:
+  ros__parameters:
+    frequency: 50.0
+    two_d_mode: true
+    twist0: /mins/twist
+    twist0_config: [false, false, false, false, false, false,
+                    true, true, false, false, false, true,
+                    false, false, false]
+    twist0_queue_size: 50
+
+ekf_map:
+  ros__parameters:
+    frequency: 30.0
+    two_d_mode: true
+    world_frame: map
+    # GPS fixes and MINS states can arrive out of order; the filter re-runs from their time.
+    smooth_lagged_data: true
+    history_length: 3.0
+    twist0: /mins/twist
+    twist0_config: [false, false, false, false, false, false,
+                    true, true, false, false, false, true,
+                    false, false, false]
+    twist0_queue_size: 50
+    odom0: /odometry/gps
+    odom0_config: [true, true, false, false, false, false,
+                   false, false, false, false, false, false,
+                   false, false, false]
+    odom0_queue_size: 10
+    odom0_pose_rejection_threshold: 3.0
+    # Unknown start: x, y, yaw are loose so the first absolute measurement decides them.
+    # x, y at 1e6: with 100 the rejection threshold drops GPS fixes more than ~30 m from 0, 0.
+    initial_estimate_covariance: [1.0e6, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 1.0e6, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 1e-9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 1e-9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 1e-9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-9, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-9, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-9, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-9, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-9, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-9]

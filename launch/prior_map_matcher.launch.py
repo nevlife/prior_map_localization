@@ -51,7 +51,7 @@ def launch_setup(context):
             {'transport': LaunchConfiguration('transport')},
         ],
         remappings=[
-            ('~/input/points', '/velodyne_points'),
+            ('~/input/points', '/velodyne_points/filtered'),
             ('~/input/odom', '/odometry/local'),
             ('~/input/initialpose', '/initialpose'),
             ('~/output/pose', '/pcl_pose'),

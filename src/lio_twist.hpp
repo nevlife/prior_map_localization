@@ -30,6 +30,15 @@ struct BaseTwist
 BaseTwist base_twist(
   const ImuMount & mount, const LioPose & prev, const LioPose & cur, double dt_sec);
 
+// The base twist from the IMU rotation and velocity in the world and its body angular velocity.
+BaseTwist base_twist(
+  const ImuMount & mount, const Eigen::Matrix3d & rotation, const Eigen::Vector3d & velocity,
+  const Eigen::Vector3d & angular_velocity);
+
+// A world-frame velocity covariance in the base frame.
+Eigen::Matrix3d base_covariance(
+  const ImuMount & mount, const Eigen::Matrix3d & rotation, const Eigen::Matrix3d & covariance);
+
 // A yaw-rate bias about the base z axis, in the IMU frame.
 Eigen::Vector3d imu_bias(const ImuMount & mount, double yaw_bias);
 

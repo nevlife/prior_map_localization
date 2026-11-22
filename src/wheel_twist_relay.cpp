@@ -19,17 +19,17 @@ WheelTwistRelay::WheelTwistRelay(const rclcpp::NodeOptions & options)
     covariance_[i] = 1e3;
   }
   pub_ = create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("~/output/twist", 20);
-  sub_ = create_subscription<std_msgs::msg::Float64>(
-    "~/input/velocity", rclcpp::SensorDataQoS(),
-    [this](const std_msgs::msg::Float64 & msg) { on_speed(msg); });
+  sub_ = create_subscription<nav_msgs::msg::Odometry>(
+    "~/input/odom", rclcpp::SensorDataQoS(),
+    [this](const nav_msgs::msg::Odometry & msg) { on_odom(msg); });
 }
 
-void WheelTwistRelay::on_speed(const std_msgs::msg::Float64 & msg)
+void WheelTwistRelay::on_odom(const nav_msgs::msg::Odometry & msg)
 {
   geometry_msgs::msg::TwistWithCovarianceStamped out;
-  out.header.stamp = now();
+  out.header.stamp = msg.header.stamp;
   out.header.frame_id = twist_frame_;
-  out.twist.twist.linear.x = msg.data * scale_;
+  out.twist.twist.linear.x = msg.twist.twist.linear.x * scale_;
   out.twist.covariance = covariance_;
   pub_->publish(out);
 }
