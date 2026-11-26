@@ -5,7 +5,7 @@
 #include "corner_features.hpp"
 
 #include <Eigen/Geometry>
-#include <flux/subscription.hpp>
+#include <flux_wrapper/flux_wrapper.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
@@ -34,11 +34,7 @@ public:
   explicit BbsInitialPose(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
-  void subscribe_points(const std::string & transport);
-  template <typename Field>
-  void on_points(
-    const std::vector<Field> & fields, const std::uint8_t * data, std::size_t count,
-    std::uint32_t step, double stamp, const std::string & frame_id);
+  void on_points(const flux_wrapper::View<sensor_msgs::msg::PointCloud2> & cloud);
   void publish(const Pose2 & pose, double z, double stamp);
   std::optional<Eigen::Affine3f> base_from_sensor(const std::string & frame_id);
 
@@ -69,8 +65,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr gps_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr reinit_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr dds_sub_;
-  std::shared_ptr<flux::Subscription> flux_sub_;
+  std::unique_ptr<flux_wrapper::Subscription<sensor_msgs::msg::PointCloud2>> points_sub_;
 };
 
 }  // namespace prior_map_localization

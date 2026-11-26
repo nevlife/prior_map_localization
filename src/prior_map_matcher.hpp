@@ -5,7 +5,7 @@
 #include "registration.hpp"
 #include "scan.hpp"
 
-#include <flux/subscription.hpp>
+#include <flux_wrapper/flux_wrapper.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <diagnostic_msgs/msg/diagnostic_array.hpp>
@@ -33,9 +33,7 @@ public:
 private:
   Registration make_registration();
   void load_map();
-  void subscribe_points(const std::string & transport);
-  void subscribe_flux_points();
-  void subscribe_dds_points();
+  void subscribe_points();
   void on_points(const RawScan & raw);
   void on_odom(const nav_msgs::msg::Odometry & msg);
   void on_initial_pose(const geometry_msgs::msg::PoseWithCovarianceStamped & msg);
@@ -67,8 +65,7 @@ private:
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr status_pub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initial_pose_sub_;
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr dds_sub_;
-  std::shared_ptr<flux::Subscription> flux_sub_;
+  std::unique_ptr<flux_wrapper::Subscription<sensor_msgs::msg::PointCloud2>> points_sub_;
   rclcpp::TimerBase::SharedPtr load_timer_;
 };
 

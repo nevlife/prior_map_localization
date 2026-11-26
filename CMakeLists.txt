@@ -8,8 +8,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
-find_package(flux_cpp REQUIRED)
-find_package(flux_std_adapters REQUIRED)
+find_package(flux_wrapper REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(OpenMP REQUIRED)
@@ -38,8 +37,8 @@ add_library(prior_map_matcher_component SHARED
   src/prior_map_matcher.cpp
   src/registration.cpp
   src/scan.cpp)
-target_include_directories(prior_map_matcher_component PRIVATE ${flux_std_adapters_INCLUDE_DIRS})
-target_link_libraries(prior_map_matcher_component flux_cpp::flux_cpp ndt_omp small_gicp::small_gicp)
+target_link_libraries(prior_map_matcher_component flux_wrapper::flux_wrapper ndt_omp
+  small_gicp::small_gicp)
 ament_target_dependencies(prior_map_matcher_component diagnostic_msgs geometry_msgs nav_msgs rclcpp
   rclcpp_components sensor_msgs std_msgs tf2_eigen tf2_ros)
 rclcpp_components_register_node(prior_map_matcher_component
@@ -49,9 +48,8 @@ add_library(bbs_initialpose_component SHARED
   src/bbs_initialpose.cpp
   src/bbs_search.cpp
   src/corner_features.cpp)
-target_include_directories(bbs_initialpose_component PRIVATE thirdparty
-  ${flux_std_adapters_INCLUDE_DIRS})
-target_link_libraries(bbs_initialpose_component flux_cpp::flux_cpp ${PCL_LIBRARIES})
+target_include_directories(bbs_initialpose_component PRIVATE thirdparty)
+target_link_libraries(bbs_initialpose_component flux_wrapper::flux_wrapper ${PCL_LIBRARIES})
 ament_target_dependencies(bbs_initialpose_component geometry_msgs nav_msgs rclcpp rclcpp_components
   sensor_msgs std_msgs tf2_eigen tf2_ros)
 rclcpp_components_register_node(bbs_initialpose_component

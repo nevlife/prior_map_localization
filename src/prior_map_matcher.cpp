@@ -2,8 +2,6 @@
 
 #include <tf2_eigen/tf2_eigen.hpp>
 
-#include "sensor_msgs/flux/point_cloud2.hpp"
-
 #include <pcl/io/pcd_io.h>
 
 #include <algorithm>
@@ -17,8 +15,6 @@ namespace prior_map_localization
 {
 namespace
 {
-
-using FluxCloud = sensor_msgs::flux_msg::PointCloud2;
 
 // A reliable reader that keeps one scan drops it whenever the next starts arriving mid-fragment.
 constexpr std::size_t cloud_queue_depth = 5;
@@ -74,7 +70,7 @@ PriorMapMatcher::PriorMapMatcher(const rclcpp::NodeOptions & options)
   initial_pose_sub_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
     "~/input/initialpose", 1,
     [this](const geometry_msgs::msg::PoseWithCovarianceStamped & msg) { on_initial_pose(msg); });
-  subscribe_points(declare_parameter<std::string>("transport"));
+  subscribe_points();
   // The container binds the group thread before its first callback, and building the target starts
   // the OpenMP team, so the map loads in that callback for the team to inherit the stage.
   load_timer_ = create_wall_timer(std::chrono::seconds(0), [this]() {
@@ -112,52 +108,15 @@ Registration PriorMapMatcher::make_registration()
   throw std::invalid_argument("registration.method must be ndt_omp or small_gicp, got " + method);
 }
 
-void PriorMapMatcher::subscribe_points(const std::string & transport)
-{
-  if (transport == "flux") {
-    subscribe_flux_points();
-    return;
-  }
-  if (transport != "dds") {
-    throw std::invalid_argument("transport must be dds or flux, got " + transport);
-  }
-  subscribe_dds_points();
-}
-
-void PriorMapMatcher::subscribe_flux_points()
-{
-  flux_sub_ = flux::create_subscription(
-    *this, "~/input/points", flux::QoS{},
-    [this](const flux::Frame & frame) {
-      const FluxCloud::View v{frame};
-      FieldOffsets fields;
-      for (std::size_t i = 0; i < v.fields__size(); ++i) {
-        fields.emplace_back(v.fields(i).name(), v.fields(i).offset());
-      }
-      std::optional<RawScan> raw = raw_scan_fields(fields);
-      if (!raw) {
-        RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), throttle_ms, "scan lacks x/y/z/time");
-        return;
-      }
-      raw->data = v.data().data();
-      raw->count = std::size_t{v.width()} * v.height();
-      raw->step = v.point_step();
-      raw->stamp_sec = v.header__sec() + v.header__nanosec() * 1e-9;
-      raw->frame_id = v.header__frame_id();
-      on_points(*raw);
-    },
-    {}, FluxCloud::kFingerprint);
-  flux_sub_->add_to_callback_group(*this);
-}
-
-void PriorMapMatcher::subscribe_dds_points()
+void PriorMapMatcher::subscribe_points()
 {
   // Large clouds go reliable: best effort loses a whole scan to one lost fragment.
-  dds_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    "~/input/points", rclcpp::QoS(cloud_queue_depth).reliable(),
-    [this](const sensor_msgs::msg::PointCloud2 & msg) {
+  points_sub_ = std::make_unique<flux_wrapper::Subscription<sensor_msgs::msg::PointCloud2>>(
+    *this, "~/input/points", rclcpp::QoS(cloud_queue_depth).reliable(),
+    [this](const flux_wrapper::View<sensor_msgs::msg::PointCloud2> & cloud) {
       FieldOffsets fields;
-      for (const auto & f : msg.fields) {
+      for (std::size_t i = 0; i < cloud.fields_size(); ++i) {
+        const flux_wrapper::Field f = cloud.field(i);
         fields.emplace_back(f.name, f.offset);
       }
       std::optional<RawScan> raw = raw_scan_fields(fields);
@@ -165,11 +124,11 @@ void PriorMapMatcher::subscribe_dds_points()
         RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), throttle_ms, "scan lacks x/y/z/time");
         return;
       }
-      raw->data = msg.data.data();
-      raw->count = std::size_t{msg.width} * msg.height;
-      raw->step = msg.point_step;
-      raw->stamp_sec = stamp_sec(msg.header.stamp);
-      raw->frame_id = msg.header.frame_id;
+      raw->data = cloud.data().data();
+      raw->count = std::size_t{cloud.width()} * cloud.height();
+      raw->step = cloud.point_step();
+      raw->stamp_sec = stamp_sec(cloud.stamp());
+      raw->frame_id = cloud.frame_id();
       on_points(*raw);
     });
 }

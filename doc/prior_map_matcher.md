@@ -9,7 +9,7 @@
 | `thirdparty/ndt_omp`                   | 서브모듈(nevlife/ndt_omp `jazzy`, koide3 원본 + line search 스위치). 이 패키지 CMake가 정적 라이브러리로 빌드한다                                                                                  |
 | `small_gicp` (작업공간의 nevlife 포크) | 두 번째 정합 엔진                                                                                                                                                                                  |
 | `src/`                                 | 노드와 ROS를 쓰지 않는 계산 모듈(`scan`, `registration`, `pose_tracker`, `bbs_search`, `corner_features`, `gyro_bias`, `lio_twist`). 모듈마다 `test/`에 gtest가 있다. 직접 작성 코드 규칙을 따른다 |
-| `config/prior_map_matcher.param.yaml`  | 노드 파라미터 전부. `map_pcd`, `transport`만 launch가 넘긴다                                                                                                                                       |
+| `config/prior_map_matcher.param.yaml`  | 노드 파라미터 전부. `map_pcd`만 launch가 넘긴다                                                                                                                                                    |
 | `launch/prior_map_matcher.launch.py`   | 노드를 컨테이너에 올린다. `container`를 주면 그 컨테이너에, 없으면 자기 `capa_component_container`에 올린다. `localization.launch.py`가 include한다                                                |
 
 ndt_omp를 colcon 패키지로 두지 않는다. 원본이 export하는 타깃이 QHULL, VTK 등 PCL 전체를 끌고 오고, `ndt_omp_ros2`와 같은 `include/pclomp`를 설치한다.
@@ -21,7 +21,7 @@ ndt_omp를 colcon 패키지로 두지 않는다. 원본이 export하는 타깃�
 ## 데이터 흐름
 
 ```text
-velodyne_transform_node -(dds|flux, lidar_transport)-> /velodyne_points -+-> fast_lio
+velodyne_transform_node -----------------------------> /velodyne_points -+-> fast_lio
                                                                          +-> prior_map_matcher
 /odometry/local (ekf_odom) --------------------------------------------------> prior_map_matcher
 /initialpose (bbs_initialpose) ----------------------------------------------> prior_map_matcher
@@ -33,21 +33,21 @@ prior_map_matcher -> /pcl_pose -> ekf_map
 
 | 노드 이름                             | 토픽                          | 타입                                      |
 | ------------------------------------- | ----------------------------- | ----------------------------------------- |
-| `~/input/points`                      | `/velodyne_points`            | `sensor_msgs/PointCloud2` (DDS 또는 flux) |
+| `~/input/points`                      | `/velodyne_points`            | `sensor_msgs/PointCloud2`                 |
 | `~/input/odom`                        | `/odometry/local`             | `nav_msgs/Odometry`                       |
 | `~/input/initialpose`                 | `/initialpose`                | `geometry_msgs/PoseWithCovarianceStamped` |
 | `~/output/pose`                       | `/pcl_pose`                   | `geometry_msgs/PoseWithCovarianceStamped` |
 | `~/output/reinitialization_requested` | `/reinitialization_requested` | `std_msgs/Bool`                           |
 | `~/debug/alignment_status`            | `/alignment_status`           | `diagnostic_msgs/DiagnosticArray`         |
 
-- 스캔은 FAST-LIO와 같은 `/velodyne_points`를 받는다. flux에서는 두 노드가 같은 공유메모리 프레임을 복사 없이 읽는다. stamp는 스캔 시작이고 점 시간은 [0, 주기)다(드라이버 `timestamp_first_packet`, bring_up `lidar.param.yaml`).
+- 스캔은 FAST-LIO와 같은 `/velodyne_points`를 받는다. 구독은 `flux_wrapper`다. 프로세스 환경에 `ENABLE_FLUX=1`이 있으면 flux로 받고, 두 노드가 같은 공유메모리 프레임을 복사 없이 읽는다. 이때 flux 구독은 ROS 경로의 발행자에게서 받지 못하므로, DDS로 재생하는 bag은 `ENABLE_FLUX` 없이 띄운다. stamp는 스캔 시작이고 점 시간은 [0, 주기)다(드라이버 `timestamp_first_packet`, bring_up `lidar.param.yaml`).
 - 트위스트는 `ekf_odom`의 `Odometry`를 바로 받는다.
 - TF는 내지 않는다. map->odom은 `ekf_map`이 맡는다.
 
 ## 노드, executor, 스레드
 
 - 노드는 하나다. 전처리 결과를 쓰는 곳이 정합 하나뿐이라 나누면 점군 전달만 늘어난다. 지도는 시작할 때 파일에서 읽는다.
-- 컴포넌트(`prior_map_localization::PriorMapMatcher`)다. lifecycle은 쓰지 않는다. `capa_component_container`(flux `ComponentManager`)에서 돈다. 이 컨테이너는 콜백 그룹마다 스레드 하나를 두고, `flux` 구독도 그룹에 넣으면(`add_to_callback_group`) 그 스레드에서 돌린다. rclcpp의 `component_container`에서는 flux 구독이 돌지 않는다.
+- 컴포넌트(`prior_map_localization::PriorMapMatcher`)다. lifecycle은 쓰지 않는다. `capa_component_container`(flux `ComponentManager`)에서 돈다. 이 컨테이너는 콜백 그룹마다 스레드 하나를 두고, flux 경로의 구독도 그 그룹의 스레드에서 돌린다. rclcpp의 `component_container`에서는 flux 경로의 구독이 돌지 않는다.
 - 콜백은 모두 기본 그룹 하나에 있다. 상태를 한 스레드만 만지므로 mutex가 없다.
 - 병렬화는 정합 엔진 안의 OpenMP뿐이다(`registration.num_threads`).
 - 컨테이너는 그룹 스레드를 첫 콜백 전에 stage에 건다. 그래서 `load_map()`은 생성자가 아니라 첫 콜백(한 번만 도는 타이머)에서 부른다. 타깃을 만드는 첫 정합이 OpenMP 팀을 만들기 때문에, 생성자에서 부르면 팀 스레드가 `children: inherit`를 물려받지 못한다. 지도를 읽기 전에 온 스캔은 버린다.
@@ -95,7 +95,7 @@ on_points
 | 항목           | lidar_localization_ros2                          | prior_map_matcher                         | 이유                                   |
 | -------------- | ------------------------------------------------ | ----------------------------------------- | -------------------------------------- |
 | NDT 라이브러리 | `ndt_omp_ros2` (line search 꺼짐, 비결정적 합산) | koide3 `ndt_omp` + line search 스위치(끔) | 원본 수정 반영, 결정적 합산            |
-| 입력           | `/velodyne_points` (DDS)                         | `/velodyne_points` (DDS/flux)             | FAST-LIO와 공유                        |
+| 입력           | `/velodyne_points` (DDS)                         | `/velodyne_points` (flux_wrapper)         | FAST-LIO와 공유                        |
 | 점 읽기        | `fromROSMsg` 후 변환                             | 버퍼에서 바로 읽음                        | 변환 단계 제거                         |
 | deskew 움직임  | reject 뒤에도 accept 간 시간으로 갱신            | 연속 accept일 때만 갱신                   | reject 연속 뒤 과소 보정 방지          |
 | 재초기화 판정  | 점수식과 latch                                   | 마지막 accept 이후 시간                   | 실제로 걸리는 조건(30 s, 200회)과 같음 |
@@ -116,7 +116,7 @@ fitness는 두 엔진 모두 PCL `getFitnessScore()`라 같은 기준으로 판�
 ## 실행
 
 ```bash
-ros2 launch prior_map_localization prior_map_matcher.launch.py map_config:=<map_pcd를 담은 param 파일> [transport:=flux] [container:=/<컨테이너>]
+ros2 launch prior_map_localization prior_map_matcher.launch.py map_config:=<map_pcd를 담은 param 파일> [container:=/<컨테이너>]
 ros2 launch prior_map_localization localization.launch.py method:=prior_map [lio:=false]
 ```
 

@@ -2,8 +2,6 @@
 
 #include <tf2_eigen/tf2_eigen.hpp>
 
-#include "sensor_msgs/flux/point_cloud2.hpp"
-
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 
@@ -14,6 +12,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -22,7 +21,6 @@ namespace prior_map_localization
 namespace
 {
 
-using FluxCloud = sensor_msgs::flux_msg::PointCloud2;
 constexpr auto throttle_ms = 5000;
 // The search fixes x, y and yaw only; z, roll and pitch get loose fixed variances.
 constexpr double initial_z_variance = 1.0;
@@ -46,8 +44,8 @@ struct RingFields
   std::uint32_t ring;
 };
 
-template <typename Field>
-std::optional<RingFields> ring_fields(const std::vector<Field> & fields)
+std::optional<RingFields> ring_fields(
+  const std::vector<std::pair<std::string_view, std::uint32_t>> & fields)
 {
   std::optional<std::uint32_t> x, y, z, ring;
   for (const auto & [name, offset] : fields) {
@@ -157,52 +155,27 @@ BbsInitialPose::BbsInitialPose(const rclcpp::NodeOptions & options)
         votes_.clear();
       }
     });
-  subscribe_points(declare_parameter<std::string>("transport"));
-}
-
-void BbsInitialPose::subscribe_points(const std::string & transport)
-{
-  if (transport == "flux") {
-    flux_sub_ = flux::create_subscription(
-      *this, "~/input/points", flux::QoS{},
-      [this](const flux::Frame & frame) {
-        const FluxCloud::View v{frame};
-        std::vector<std::pair<std::string_view, std::uint32_t>> fields;
-        for (std::size_t i = 0; i < v.fields__size(); ++i) {
-          fields.emplace_back(v.fields(i).name(), v.fields(i).offset());
-        }
-        on_points(
-          fields, v.data().data(), std::size_t{v.width()} * v.height(), v.point_step(),
-          v.header__sec() + v.header__nanosec() * 1e-9, std::string(v.header__frame_id()));
-      },
-      {}, FluxCloud::kFingerprint);
-    flux_sub_->add_to_callback_group(*this);
-    return;
-  }
-  if (transport != "dds") {
-    throw std::invalid_argument("transport must be dds or flux, got " + transport);
-  }
   // Depth 1: a search outlasts several scans, and only the newest is worth searching.
-  dds_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-    "~/input/points", rclcpp::QoS(1).reliable(), [this](const sensor_msgs::msg::PointCloud2 & msg) {
-      std::vector<std::pair<std::string, std::uint32_t>> fields;
-      for (const auto & f : msg.fields) {
-        fields.emplace_back(f.name, f.offset);
-      }
-      on_points(
-        fields, msg.data.data(), std::size_t{msg.width} * msg.height, msg.point_step,
-        stamp_sec(msg.header.stamp), msg.header.frame_id);
-    });
+  points_sub_ = std::make_unique<flux_wrapper::Subscription<sensor_msgs::msg::PointCloud2>>(
+    *this, "~/input/points", rclcpp::QoS(1).reliable(),
+    [this](const flux_wrapper::View<sensor_msgs::msg::PointCloud2> & cloud) { on_points(cloud); });
 }
 
-template <typename Field>
-void BbsInitialPose::on_points(
-  const std::vector<Field> & fields, const std::uint8_t * data, std::size_t count,
-  std::uint32_t step, double stamp, const std::string & frame_id)
+void BbsInitialPose::on_points(const flux_wrapper::View<sensor_msgs::msg::PointCloud2> & cloud)
 {
   if (!armed_ || !gps_ || !odom_) {
     return;
   }
+  std::vector<std::pair<std::string_view, std::uint32_t>> fields;
+  for (std::size_t i = 0; i < cloud.fields_size(); ++i) {
+    const flux_wrapper::Field field = cloud.field(i);
+    fields.emplace_back(field.name, field.offset);
+  }
+  const std::uint8_t * data = cloud.data().data();
+  const std::size_t count = std::size_t{cloud.width()} * cloud.height();
+  const std::uint32_t step = cloud.point_step();
+  const double stamp = stamp_sec(cloud.stamp());
+  const std::string frame_id(cloud.frame_id());
   const std::optional<RingFields> f = ring_fields(fields);
   if (!f) {
     RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), throttle_ms, "scan lacks x/y/z/ring");
